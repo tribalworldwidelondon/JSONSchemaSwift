@@ -160,7 +160,7 @@ struct SchemaItem {
         return [:]
     }
     
-    func validates(_ json: Any?) -> ValidationResult {
+    func validates(_ json: Any) -> ValidationResult {
         
         switch type {
         case .object:
@@ -178,7 +178,7 @@ struct SchemaItem {
         }
         
         if typeValidation != nil {
-            return typeValidation!.validates(json!)
+            return typeValidation!.validates(json)
         }
         return .valid
     }
