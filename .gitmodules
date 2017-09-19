@@ -1,0 +1,3 @@
+[submodule "schema-test-harness"]
+	path = schema-test-harness
+	url = https://github.com/json-schema-org/JSON-Schema-Test-Suite.git
