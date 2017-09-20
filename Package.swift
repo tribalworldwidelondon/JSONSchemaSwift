@@ -30,7 +30,7 @@ let package = Package(
             dependencies: ["JSONParser"]),
         .target(
             name: "JSONSchema",
-            dependencies: []),
+            dependencies: ["JSONParser"]),
         .testTarget(
             name: "JSONSchemaTests",
             dependencies: ["JSONSchema"]),

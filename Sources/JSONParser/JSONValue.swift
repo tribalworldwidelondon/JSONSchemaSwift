@@ -24,7 +24,7 @@
 
 import Foundation
 
-enum JSONValue {
+public enum JSONValue {
     case object([JSONValue: JSONValue], JSONSourcePosition)
     case array([JSONValue], JSONSourcePosition)
     
@@ -34,7 +34,27 @@ enum JSONValue {
     case boolean(Bool, JSONSourcePosition)
     case null(JSONSourcePosition)
     
-    var objectRepresentation: Any? {
+    public var sourcePosition: JSONSourcePosition{
+        switch self {
+        case .array(_, let sp): return sp
+        case .boolean(_, let sp): return sp
+        case .float(_, let sp): return sp
+        case .integer(_, let sp): return sp
+        case .null(let sp): return sp
+        case .object(_, let sp): return sp
+        case .string(_, let sp): return sp
+        }
+    }
+    
+    public var stringValue: String? {
+        guard case let .string(str, _) = self else {
+            return nil
+        }
+        
+        return str
+    }
+    
+    public var objectRepresentation: Any? {
         switch self {
         case .string(let s, _):
             return s as Any
@@ -82,7 +102,7 @@ enum JSONValue {
 }
 
 extension JSONValue: Equatable, Hashable {
-    static func ==(lhs: JSONValue, rhs: JSONValue) -> Bool {
+    public static func ==(lhs: JSONValue, rhs: JSONValue) -> Bool {
         switch (lhs, rhs) {
         case (.string(let a, _), .string(let b, _)) where a == b: return true
         case (.float(let a, _), .float(let b, _)) where a == b: return true
@@ -93,7 +113,7 @@ extension JSONValue: Equatable, Hashable {
         }
     }
     
-    var hashValue: Int {
+    public var hashValue: Int {
         // Only hash strings, since they are the only types that can be keys
         switch self {
         case .string(let str, _):

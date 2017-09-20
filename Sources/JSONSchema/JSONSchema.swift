@@ -23,6 +23,7 @@
  */
 
 import Foundation
+import JSONParser
 
 class JsonSchema {
     let root: [SchemaItem]
@@ -36,3 +37,28 @@ class JsonSchema {
     }
 }
 
+struct Schema {
+    var id: String?
+    var schemaUri: String?
+    
+    var description: String?
+    
+    var validators: [Validator]
+    
+    /*init(json: JSONValue) {
+        guard case let .object(props, sourcePosition) = json else {
+            validators = []
+            return
+        }
+        
+        for key in props.keys {
+            switch key.stringValue! {
+            case "multipleOf":
+                break
+                
+            default:
+                break
+            }
+        }
+    }*/
+}
