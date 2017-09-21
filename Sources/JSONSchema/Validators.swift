@@ -606,6 +606,69 @@ struct OneOfValidator: Validator {
     }
 }
 
+struct PatternPropertiesValidator: Validator {
+    init(_ json: JSONValue) throws {
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        guard case let .object(objProps, _) = json else {
+            return
+        }
+        
+        let props = try objectPropsOrThrow("key must be a string", props: objProps)
+        
+        var errors = [ValidationError]()
+        
+        for p in props {
+            for pattProp in schema.patternProperties {
+                if pattProp.key.matches(in: p.key, options: [], range: NSMakeRange(0, p.key.characters.count)).count > 0 {
+                    do {
+                        try pattProp.value.validate(p.value)
+                    } catch let e as ValidationError {
+                        errors.append(e)
+                    }
+                }
+            }
+        }
+        
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap{ $0.errors })
+        }
+    }
+}
+
+struct AdditionalPropertiesValidator: Validator {
+    let additionalPropertiesSchema: Schema
+    
+    init(_ json: JSONValue) throws {
+        additionalPropertiesSchema = try Schema(json)
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        guard case let .object(objProps, _) = json else {
+            return
+        }
+        
+        let props = try objectPropsOrThrow("key must be a string", props: objProps)
+        
+        var errors = [ValidationError]()
+        
+        for p in props {
+            if !schema.properties.keys.contains(p.key) && !string(p.key, matchesPatternArray: Array(schema.patternProperties.keys)) {
+                do {
+                    try additionalPropertiesSchema.validate(p.value)
+                } catch let e as ValidationError {
+                    errors.append(e)
+                }
+            }
+        }
+        
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap{ $0.errors })
+        }
+    }
+}
+
 // MARK: - Helpers
 
 internal func validateNumber(_ json: JSONValue, f: ((Double) -> Bool)) -> Bool {
@@ -734,4 +797,14 @@ internal func value(_ value: JSONValue, matchesType type: String) -> Bool {
     case .string:
         return type == "string"
     }
+}
+
+internal func string(_ str: String, matchesPatternArray patterns: [NSRegularExpression]) -> Bool {
+    for patt in patterns {
+        if patt.matches(in: str, options: [], range: NSMakeRange(0, str.characters.count)).count > 0 {
+            return true
+        }
+    }
+    
+    return false
 }

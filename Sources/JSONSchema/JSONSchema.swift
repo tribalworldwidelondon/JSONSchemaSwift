@@ -48,7 +48,9 @@ internal let validatorTypes: [String: Validator.Type] = [
     "properties": PropertiesValidator.self,
     "allOf": AllOfValidator.self,
     "anyOf": AnyOfValidator.self,
-    "oneOf": OneOfValidator.self
+    "oneOf": OneOfValidator.self,
+    "additionalProperties": AdditionalPropertiesValidator.self,
+    "patternProperties": PatternPropertiesValidator.self
 ]
 
 struct Schema {
@@ -58,6 +60,7 @@ struct Schema {
     var description: String?
     
     var properties: [String: Schema]
+    var patternProperties: [NSRegularExpression: Schema]
     
     var validators: [Validator]
     var itemShouldBePresent: Bool? = nil
@@ -70,6 +73,7 @@ struct Schema {
             
             validators = []
             properties = [:]
+            patternProperties = [:]
             return
         }
         
@@ -107,8 +111,6 @@ struct Schema {
             do {
                 let strProps = try objectPropsOrThrow("'properties' should be an object", props: obj)
                 
-                
-                
                 for p in strProps {
                     do {
                         properties[p.key] = try Schema(p.value)
@@ -120,6 +122,38 @@ struct Schema {
             } catch let e as ValidationError {
                 errors.append(e)
                 break breakProps
+            }
+        }
+        
+        patternProperties = [:]
+        
+        // Extract schemas from patternProperties
+        breakPattProps: if let objProps = props["patternProperties"] {
+            guard case let .object(obj, _) = objProps else {
+                errors.append(ValidationError("'patternProperties' should be an object", sourceLocation: objProps.sourcePosition))
+                break breakPattProps
+            }
+            
+            do {
+                let strProps = try objectPropsOrThrow("'patternProperties' should be an object", props: obj)
+                
+                for p in strProps {
+                    do {
+                        let key = try NSRegularExpression(pattern: p.key, options: [])
+                        patternProperties[key] = try Schema(p.value)
+                        
+                    } catch let e as ValidationError {
+                        errors.append(e)
+                    } catch {
+                        let keyIndex = Array(strProps.keys).index(of: p.key)
+                        
+                        errors.append(ValidationError("Pattern is not a valid regular expression",
+                                                      sourceLocation: Array(obj.keys)[keyIndex!].sourcePosition))
+                    }
+                }
+            } catch let e as ValidationError {
+                errors.append(e)
+                break breakPattProps
             }
         }
         
