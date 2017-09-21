@@ -117,18 +117,40 @@ extension JSONValue: Equatable, Hashable {
         case (.integer(let a, _), .integer(let b, _)) where a == b: return true
         case (.boolean(let a, _), .boolean(let b, _)) where a == b: return true
         case (.null, .null): return true
+        case (.array(let a, _), .array(let b, _)):
+            if a.count != b.count {
+                return false
+            }
+            
+            for i in 0..<a.count {
+                if a[i] != b[i] {
+                    return false
+                }
+            }
+            
+            return true
+            
+        case (.object, .object) where lhs.hashValue == rhs.hashValue: return true
         default: return false
         }
     }
     
     public var hashValue: Int {
-        // Only hash strings, since they are the only types that can be keys
         switch self {
         case .string(let str, _):
             return str.hashValue
-        default:
-            assertionFailure("Only strings can be hashed.")
-            return 0
+        case .integer(let i, _):
+            return i.hashValue
+        case .float(let f, _):
+            return f.hashValue
+        case .array:
+            return self.asJsonString().hashValue
+        case .object:
+            return self.asJsonString().hashValue
+        case .boolean(let b, _):
+            return b.hashValue
+        case .null:
+            return NSNull().hashValue
         }
     }
 }

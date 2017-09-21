@@ -272,15 +272,18 @@ struct UniqueItemsValidator: Validator {
     }
     
     func validate(_ json: JSONValue, schema: Schema) throws {
-        try validateOrThrow("Array must have unique items", json: json) {
-            validateArray(json) {
-                if !uniqueItems {
-                    return true
-                }
-                
-                let s = Set<JSONValue>($0)
-                return s.count == $0.count
+        guard case let .array(array, _) = json else {
+            return
+        }
+        
+        let duplicates = Array(Set(array.filter { (v: JSONValue) in array.filter { $0 == v }.count > 1}))
+        
+        if duplicates.count > 0 {
+            let errors = duplicates.map {
+                ("Item is a duplicate", $0.sourcePosition)
             }
+            
+            throw ValidationError(errors)
         }
     }
 }
