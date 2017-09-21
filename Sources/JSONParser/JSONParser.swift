@@ -29,6 +29,12 @@ public struct JSONSourcePosition {
     let column: Int
     let source: String
     
+    public init(line: Int, column: Int, source: String) {
+        self.line = line
+        self.column = column
+        self.source = source
+    }
+    
     var sourceLine: String {
         return String(source.split(separator: "\n")[line])
     }

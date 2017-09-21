@@ -54,7 +54,51 @@ internal let validatorTypes: [String: Validator.Type] = [
     "const": ConstValidator.self
 ]
 
-struct Schema {
+class RefResolver {
+    var references: [String: Schema]
+    
+    init() {
+        references = [:]
+    }
+    
+    func addReference(_ refPath: [String], forSchema schema: Schema) {
+        var path = refPath.map { escapeRef($0) }.joined(separator: "/")
+        if path.characters.count > 0 {
+            path = "#/" + path
+        } else {
+            path = "#"
+        }
+        
+        assert(references[path] == nil, "Ref already added!")
+        references[path] = schema
+    }
+    
+    func escapeRef(_ ref: String) -> String {
+        return ref.replacingOccurrences(of: "/", with: "~1")
+            .replacingOccurrences(of: "~", with: "~0")
+    }
+    
+    func unescapeRef(_ ref: String) -> String {
+        return ref.replacingOccurrences(of: "~0", with: "~")
+            .replacingOccurrences(of: "~1", with: "/")
+    }
+    
+    func getSchemaRef(_ ref: String) throws -> Schema {
+        //let unescapedRef = unescapeRef(ref)
+        
+        guard let schema = references[ref] else {
+            throw ValidationError("Unable to resolve reference: '\(ref)'", sourceLocation: JSONSourcePosition(line: -1, column: -1, source: ""))
+        }
+        
+        return schema
+    }
+}
+
+class Schema {
+    var refResolver: RefResolver
+    
+    var refId: String?
+    
     var id: String?
     var schemaUri: String?
     var title: String?
@@ -67,7 +111,13 @@ struct Schema {
     var validators: [Validator]
     var itemShouldBePresent: Bool? = nil
     
-    init(_ json: JSONValue) throws {
+    init(_ json: JSONValue, refResolver: RefResolver? = nil, refPath: [String] = []) throws {
+        if refResolver != nil {
+            self.refResolver = refResolver!
+        } else {
+            self.refResolver = RefResolver()
+        }
+        
         guard case let .object(jsonProps, _) = json else {
             if case let .boolean(b, _) = json {
                 itemShouldBePresent = b
@@ -82,6 +132,20 @@ struct Schema {
         
         let props = try objectPropsOrThrow("Object key is not a string", props: jsonProps)
         
+        // If there is a $ref reference, ignore all other properties
+        if let ref = props["$ref"] {
+            validators = []
+            properties = [:]
+            patternProperties = [:]
+            definitions = [:]
+            
+            guard case let .string(str, _) = ref else {
+                throw ValidationError("'$ref' field must be a string", sourceLocation: props["$ref"]!.sourcePosition)
+            }
+            
+            refId = str
+        }
+        
         id          = props["$id"]?.stringValue
         schemaUri   = props["$schema"]?.stringValue
         title       = props["title"]?.stringValue
@@ -94,7 +158,7 @@ struct Schema {
         for v in validatorTypes {
             if let validatorJson = props[v.key] {
                 do {
-                    let validator = try v.value.init(validatorJson)
+                    let validator = try v.value.init(validatorJson, refResolver: self.refResolver, refPath: refPath)
                     validators.append(validator)
                 } catch let e as ValidationError {
                     errors.append(e)
@@ -116,7 +180,7 @@ struct Schema {
                 
                 for p in strProps {
                     do {
-                        properties[p.key] = try Schema(p.value)
+                        properties[p.key] = try Schema(p.value, refResolver: self.refResolver, refPath: refPath + ["properties", p.key])
             
                     } catch let e as ValidationError {
                         errors.append(e)
@@ -143,7 +207,7 @@ struct Schema {
                 for p in strProps {
                     do {
                         let key = try NSRegularExpression(pattern: p.key, options: [])
-                        patternProperties[key] = try Schema(p.value)
+                        patternProperties[key] = try Schema(p.value, refResolver: self.refResolver, refPath: refPath + ["patternProperties", p.key])
                         
                     } catch let e as ValidationError {
                         errors.append(e)
@@ -174,7 +238,7 @@ struct Schema {
                 
                 for p in strProps {
                     do {
-                        definitions[p.key] = try Schema(p.value)
+                        definitions[p.key] = try Schema(p.value, refResolver: self.refResolver, refPath: refPath + ["definitions", p.key])
                         
                     } catch let e as ValidationError {
                         errors.append(e)
@@ -186,6 +250,17 @@ struct Schema {
             }
         }
         
+        if refResolver == nil {
+            if refPath.count == 0 {
+                self.refResolver.addReference(refPath, forSchema: self)
+            }
+        } else {
+            if refPath.count > 0 {
+                self.refResolver.addReference(refPath, forSchema: self)
+            }
+        }
+        
+        
         // Collect all errors and throw as one
         if errors.count > 0 {
             throw ValidationError(errors.flatMap { $0.errors })
@@ -194,6 +269,11 @@ struct Schema {
     }
     
     func validate(_ json: JSONValue) throws {
+        if refId != nil {
+            try refResolver.getSchemaRef(refId!).validate(json)
+            return
+        }
+        
         var errors: [ValidationError] = []
         
         if let present = itemShouldBePresent {
