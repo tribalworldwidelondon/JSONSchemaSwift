@@ -457,7 +457,6 @@ struct NotValidator: Validator {
 }
 
 struct PropertiesValidator: Validator {
-    
     init(_ json: JSONValue) throws {
     }
     
@@ -482,6 +481,47 @@ struct PropertiesValidator: Validator {
         
         if errors.count > 0 {
             throw ValidationError(errors.flatMap{ $0.errors })
+        }
+    }
+}
+
+struct AllOfValidator: Validator {
+    let validationSchemas: [Schema]
+    
+    init(_ json: JSONValue) throws {
+        let schemaObjs = try getArrayOrThrow("'allOf' must be an array", json: json)
+        
+        var errors = [ValidationError]()
+        var schemas = [Schema]()
+        
+        for obj in schemaObjs {
+            do {
+                schemas.append(try Schema(obj))
+            } catch let e as ValidationError {
+                errors.append(e)
+            }
+        }
+        
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap { $0.errors })
+        }
+        
+        validationSchemas = schemas
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        var errors = [ValidationError]()
+        
+        for s in validationSchemas {
+            do {
+                try s.validate(json)
+            } catch let e as ValidationError {
+                errors.append(e)
+            }
+        }
+        
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap { $0.errors })
         }
     }
 }

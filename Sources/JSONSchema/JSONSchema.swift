@@ -45,7 +45,8 @@ internal let validatorTypes: [String: Validator.Type] = [
     "propertyNames": PropertyNamesValidator.self,
     "enum": EnumValidator.self,
     "not": NotValidator.self,
-    "properties": PropertiesValidator.self
+    "properties": PropertiesValidator.self,
+    "allOf": AllOfValidator.self
 ]
 
 struct Schema {
