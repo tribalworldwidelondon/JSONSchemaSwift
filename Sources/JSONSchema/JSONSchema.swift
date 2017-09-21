@@ -56,7 +56,8 @@ internal let validatorTypes: [String: Validator.Type] = [
     "type": TypeValidator.self,
     "propertyNames": PropertyNamesValidator.self,
     "enum": EnumValidator.self,
-    "not": NotValidator.self
+    "not": NotValidator.self,
+    "properties": PropertiesValidator.self
 ]
 
 struct Schema {
@@ -64,6 +65,8 @@ struct Schema {
     var schemaUri: String?
     var title: String?
     var description: String?
+    
+    var properties: [String: Schema]
     
     var validators: [Validator]
     var itemShouldBePresent: Bool? = nil
@@ -75,6 +78,7 @@ struct Schema {
             }
             
             validators = []
+            properties = [:]
             return
         }
         
@@ -100,27 +104,61 @@ struct Schema {
             }
         }
         
-        /*
-        for key in props.keys {
-            switch key.stringValue! {
-            case "multipleOf":
-                break
-                
-            default:
-                break
+        properties = [:]
+        
+        // Extract schemas from properties
+        breakProps: if let objProps = props["properties"] {
+            guard case let .object(obj, _) = objProps else {
+                errors.append(ValidationError("'properties' should be an object", sourceLocation: objProps.sourcePosition))
+                break breakProps
             }
-        }*/
+            
+            do {
+                let strProps = try objectPropsOrThrow("'properties' should be an object", props: obj)
+                
+                
+                
+                for p in strProps {
+                    do {
+                        properties[p.key] = try Schema(p.value)
+            
+                    } catch let e as ValidationError {
+                        errors.append(e)
+                    }
+                }
+            } catch let e as ValidationError {
+                errors.append(e)
+                break breakProps
+            }
+        }
+        
+        // Collect all errors and throw as one
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap { $0.errors })
+        }
+        
     }
     
     func validate(_ json: JSONValue) throws {
+        var errors: [ValidationError] = []
+        
         if let present = itemShouldBePresent {
             if !present {
-                throw ValidationError("item should not be present", sourceLocation: json.sourcePosition)
+                errors.append(ValidationError("item should not be present", sourceLocation: json.sourcePosition))
             }
         }
         
         for validator in validators {
-            try validator.validate(json, schema: self)
+            do {
+                try validator.validate(json, schema: self)
+            } catch let e as ValidationError {
+                errors.append(e)
+            }
+        }
+        
+        // Collect all errors and throw as one
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap { $0.errors })
         }
     }
 }

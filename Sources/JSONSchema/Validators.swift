@@ -456,6 +456,36 @@ struct NotValidator: Validator {
     }
 }
 
+struct PropertiesValidator: Validator {
+    
+    init(_ json: JSONValue) throws {
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        guard case let .object(objProps, _) = json else {
+            return
+        }
+        
+        let props = try objectPropsOrThrow("key must be a string", props: objProps)
+        
+        var errors = [ValidationError]()
+        
+        for propSchema in schema.properties {
+            if let item = props[propSchema.key] {
+                do {
+                    try propSchema.value.validate(item)
+                } catch let e as ValidationError {
+                    errors.append(e)
+                }
+            }
+        }
+        
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap{ $0.errors })
+        }
+    }
+}
+
 
 // MARK: - Helpers
 
