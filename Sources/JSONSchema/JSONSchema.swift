@@ -25,18 +25,6 @@
 import Foundation
 import JSONParser
 
-class JsonSchema {
-    let root: [SchemaItem]
-    
-    init(_ schema: Any) throws {
-        root = [ try SchemaItem(schema)]
-    }
-    
-    func validates(_ json: Any?) -> ValidationResult {
-        return root[0].validates(json)
-    }
-}
-
 internal let validatorTypes: [String: Validator.Type] = [
     "multipleOf": MultipleOfValidator.self,
     "maximum": MaximumValidator.self,
