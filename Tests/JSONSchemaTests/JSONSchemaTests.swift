@@ -127,45 +127,45 @@ class JSONSchemaTests: XCTestCase {
         }
     }
     
-        func testAdditionalItems() {
-            runTestSuite(suiteName: "additionalItems")
-        }
+    func testAdditionalItems() {
+        runTestSuite(suiteName: "additionalItems")
+    }
     
-        func testAdditionalProperties() {
-            runTestSuite(suiteName: "additionalProperties")
-        }
+    func testAdditionalProperties() {
+        runTestSuite(suiteName: "additionalProperties")
+    }
     
-        func testAllOf() {
-            runTestSuite(suiteName: "allOf")
-        }
+    func testAllOf() {
+        runTestSuite(suiteName: "allOf")
+    }
     
-        func testAnyOf() {
-            runTestSuite(suiteName: "anyOf")
-        }
+    func testAnyOf() {
+        runTestSuite(suiteName: "anyOf")
+    }
     
     func testBooleanSchema() {
         runTestSuite(suiteName: "boolean_schema")
     }
     
-        func testConst() {
-            runTestSuite(suiteName: "const")
-        }
+    func testConst() {
+        runTestSuite(suiteName: "const")
+    }
     
-        func testContains() {
-            runTestSuite(suiteName: "contains")
-        }
+    func testContains() {
+        runTestSuite(suiteName: "contains")
+    }
     
-        func testDefault() {
-            runTestSuite(suiteName: "default")
-        }
+    func testDefault() {
+        runTestSuite(suiteName: "default")
+    }
     
-        func testDefinitions() {
-            runTestSuite(suiteName: "definitions")
-        }
+    func testDefinitions() {
+        runTestSuite(suiteName: "definitions")
+    }
     
-        func testDependencies() {
-            runTestSuite(suiteName: "dependencies")
-        }
+    func testDependencies() {
+        runTestSuite(suiteName: "dependencies")
+    }
     
     func testEnum() {
         runTestSuite(suiteName: "enum")
@@ -219,37 +219,37 @@ class JSONSchemaTests: XCTestCase {
         runTestSuite(suiteName: "multipleOf")
     }
     
-        func testNot() {
-            runTestSuite(suiteName: "not")
-        }
+    func testNot() {
+        runTestSuite(suiteName: "not")
+    }
     
-        func testOneOf() {
-            runTestSuite(suiteName: "oneOf")
-        }
+    func testOneOf() {
+        runTestSuite(suiteName: "oneOf")
+    }
     
     func testPattern() {
         runTestSuite(suiteName: "pattern")
     }
     
-        func testPatternProperties() {
-            runTestSuite(suiteName: "patternProperties")
-        }
+    func testPatternProperties() {
+        runTestSuite(suiteName: "patternProperties")
+    }
     
-        func testProperties() {
-            runTestSuite(suiteName: "properties")
-        }
+    func testProperties() {
+        runTestSuite(suiteName: "properties")
+    }
     
     func testPropertyNames() {
         runTestSuite(suiteName: "propertyNames")
     }
     
-        func testRef() {
-            runTestSuite(suiteName: "ref")
-        }
+    func testRef() {
+        runTestSuite(suiteName: "ref")
+    }
     
-        func testRefRemote() {
-            runTestSuite(suiteName: "refRemote")
-        }
+    func testRefRemote() {
+        runTestSuite(suiteName: "refRemote")
+    }
     
     func testRequired() {
         runTestSuite(suiteName: "required")
@@ -259,8 +259,8 @@ class JSONSchemaTests: XCTestCase {
         runTestSuite(suiteName: "type")
     }
     
-        func testUniqueItems() {
-            runTestSuite(suiteName: "uniqueItems")
-        }
+    func testUniqueItems() {
+        runTestSuite(suiteName: "uniqueItems")
+    }
     
 }

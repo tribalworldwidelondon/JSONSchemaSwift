@@ -438,6 +438,24 @@ struct EnumValidator: Validator {
     }
 }
 
+struct NotValidator: Validator {
+    let notSchema: Schema
+    
+    init(_ json: JSONValue) throws {
+        notSchema = try Schema(json)
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        do {
+            try notSchema.validate(json)
+        } catch {
+            return
+        }
+        
+        throw ValidationError("item should not match schema", sourceLocation: json.sourcePosition)
+    }
+}
+
 
 // MARK: - Helpers
 
