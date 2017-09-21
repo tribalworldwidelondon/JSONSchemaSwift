@@ -563,6 +563,49 @@ struct AnyOfValidator: Validator {
     }
 }
 
+struct OneOfValidator: Validator {
+    let validationSchemas: [Schema]
+    
+    init(_ json: JSONValue) throws {
+        let schemaObjs = try getArrayOrThrow("'oneOf' must be an array", json: json)
+        
+        var errors = [ValidationError]()
+        var schemas = [Schema]()
+        
+        for obj in schemaObjs {
+            do {
+                schemas.append(try Schema(obj))
+            } catch let e as ValidationError {
+                errors.append(e)
+            }
+        }
+        
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap { $0.errors })
+        }
+        
+        validationSchemas = schemas
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        var validationCount = 0
+        
+        for s in validationSchemas {
+            do {
+                try s.validate(json)
+                validationCount += 1
+            } catch {
+            }
+        }
+        
+        if validationCount == 0 {
+            throw ValidationError("item must match exactly one schema", sourceLocation: json.sourcePosition)
+        } else if validationCount > 1 {
+            throw ValidationError("item must match exactly one schema", sourceLocation: json.sourcePosition)
+        }
+    }
+}
+
 // MARK: - Helpers
 
 internal func validateNumber(_ json: JSONValue, f: ((Double) -> Bool)) -> Bool {
