@@ -173,7 +173,7 @@ extension JSONValue {
         }
     }
     
-    func asJsonString(indent: Int = 0, initialIndent: Bool = true) -> String {
+    public func asJsonString(indent: Int = 0, initialIndent: Bool = true) -> String {
         let indentStr: String = (0..<indent).reduce("") { s, i in
             return s + "  "
         }

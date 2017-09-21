@@ -669,6 +669,21 @@ struct AdditionalPropertiesValidator: Validator {
     }
 }
 
+struct ConstValidator: Validator {
+    let constValue: JSONValue
+    
+    init(_ json: JSONValue) throws {
+        constValue = json
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        if json != constValue {
+            throw ValidationError("item should be equal to the constant value: \(constValue.asJsonString())",
+                sourceLocation: json.sourcePosition)
+        }
+    }
+}
+
 // MARK: - Helpers
 
 internal func validateNumber(_ json: JSONValue, f: ((Double) -> Bool)) -> Bool {

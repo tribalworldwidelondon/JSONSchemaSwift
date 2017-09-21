@@ -50,7 +50,8 @@ internal let validatorTypes: [String: Validator.Type] = [
     "anyOf": AnyOfValidator.self,
     "oneOf": OneOfValidator.self,
     "additionalProperties": AdditionalPropertiesValidator.self,
-    "patternProperties": PatternPropertiesValidator.self
+    "patternProperties": PatternPropertiesValidator.self,
+    "const": ConstValidator.self
 ]
 
 struct Schema {
@@ -61,6 +62,7 @@ struct Schema {
     
     var properties: [String: Schema]
     var patternProperties: [NSRegularExpression: Schema]
+    var definitions: [String: Schema]
     
     var validators: [Validator]
     var itemShouldBePresent: Bool? = nil
@@ -74,6 +76,7 @@ struct Schema {
             validators = []
             properties = [:]
             patternProperties = [:]
+            definitions = [:]
             return
         }
         
@@ -154,6 +157,32 @@ struct Schema {
             } catch let e as ValidationError {
                 errors.append(e)
                 break breakPattProps
+            }
+        }
+        
+        // Extract schemas from definitions
+        
+        definitions = [:]
+        breakDefinitions: if let objProps = props["definition"] {
+            guard case let .object(obj, _) = objProps else {
+                errors.append(ValidationError("'definitions' should be an object", sourceLocation: objProps.sourcePosition))
+                break breakDefinitions
+            }
+            
+            do {
+                let strProps = try objectPropsOrThrow("'definitions' should be an object", props: obj)
+                
+                for p in strProps {
+                    do {
+                        definitions[p.key] = try Schema(p.value)
+                        
+                    } catch let e as ValidationError {
+                        errors.append(e)
+                    }
+                }
+            } catch let e as ValidationError {
+                errors.append(e)
+                break breakDefinitions
             }
         }
         
