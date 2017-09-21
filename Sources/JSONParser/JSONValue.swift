@@ -54,6 +54,14 @@ public enum JSONValue {
         return str
     }
     
+    public var boolValue: Bool? {
+        guard case let .boolean(b, _) = self else {
+            return nil
+        }
+        
+        return b
+    }
+    
     public var objectRepresentation: Any? {
         switch self {
         case .string(let s, _):

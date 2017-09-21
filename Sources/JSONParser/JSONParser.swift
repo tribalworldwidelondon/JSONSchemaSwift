@@ -266,6 +266,16 @@ class StringMatcher: JSONTokenMatcher {
             stream.advanceCharacter()
             
             var tok = ""
+            var unicodeScalars: [UInt16] = []
+            
+            func checkScalars() throws {
+                if unicodeScalars.count > 0 {
+                    let str = String(utf16CodeUnits: unicodeScalars, count: unicodeScalars.count)
+                    tok += str
+                    
+                    unicodeScalars = []
+                }
+            }
             
             while stream.currentCharacter != nil && !isMatch(stream) {
                 let char = stream.currentCharacter!
@@ -280,7 +290,7 @@ class StringMatcher: JSONTokenMatcher {
                                               message: "Expected escape character")
                     }
                     
-                    let escapeResult: String
+                    var escapeResult: String? = nil
                     
                     switch escapeChar {
                     case "n":
@@ -310,6 +320,42 @@ class StringMatcher: JSONTokenMatcher {
                         escapeResult = String(Character(UnicodeScalar(hexValue)))
                     case "\"":
                         escapeResult = "\""
+                    case "u":
+                        stream.advanceCharacter()
+                        guard let u1 = stream.currentCharacter else {
+                            throw JSONParserError(sourcePosition: stream.sourcePosition,
+                                                  errorType: .lexer,
+                                                  message: "Error in string: unexpected EOF")
+                        }
+                        
+                        stream.advanceCharacter()
+                        guard let u2 = stream.currentCharacter else {
+                            throw JSONParserError(sourcePosition: stream.sourcePosition,
+                                                  errorType: .lexer,
+                                                  message: "Error in string: unexpected EOF")
+                        }
+                        
+                        stream.advanceCharacter()
+                        guard let u3 = stream.currentCharacter else {
+                            throw JSONParserError(sourcePosition: stream.sourcePosition,
+                                                  errorType: .lexer,
+                                                  message: "Error in string: unexpected EOF")
+                        }
+                        
+                        stream.advanceCharacter()
+                        guard let u4 = stream.currentCharacter else {
+                            throw JSONParserError(sourcePosition: stream.sourcePosition,
+                                                  errorType: .lexer,
+                                                  message: "Error in string: unexpected EOF")
+                        }
+                        
+                        guard let hexValue = UInt16(String([u1, u2, u3, u4]), radix: 16) else {
+                            throw JSONParserError(sourcePosition: stream.sourcePosition,
+                                                  errorType: .lexer,
+                                                  message: "Error in string: invalid unicode escape sequence: \(String([u1, u2, u3, u4]))")
+                        }
+                        
+                        unicodeScalars.append(hexValue)
                         
                     default:
                         throw JSONParserError(sourcePosition: stream.sourcePosition,
@@ -317,14 +363,21 @@ class StringMatcher: JSONTokenMatcher {
                                               message: "Error in string: Unknown escape character: \\\(escapeChar)")
                     }
                     
-                    tok += escapeResult
+                    if escapeResult != nil {
+                        tok += escapeResult!
+                    }
+                    
                     stream.advanceCharacter()
                     
                 } else {
+                    try checkScalars()
+                    
                     tok += String(char)
                     stream.advanceCharacter()
                 }
             }
+            
+            try checkScalars()
             
             if stream.currentCharacter != "\"" {
                 throw JSONParserError(sourcePosition: stream.sourcePosition,

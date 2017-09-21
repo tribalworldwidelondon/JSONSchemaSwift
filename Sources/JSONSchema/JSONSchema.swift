@@ -37,20 +37,69 @@ class JsonSchema {
     }
 }
 
+internal let validatorTypes: [String: Validator.Type] = [
+    "multipleOf": MultipleOfValidator.self,
+    "maximum": MaximumValidator.self,
+    "exclusiveMaximum": ExclusiveMaximumValidator.self,
+    "minimum": MinimumValidator.self,
+    "exclusiveMinimum": ExclusiveMinimumValidator.self,
+    "maxLength": MaxLengthValidator.self,
+    "minLength": MinLengthValidator.self,
+    "pattern": PatternValidator.self,
+    "items": ItemsValidator.self,
+    "maxItems": MaxItemsValidator.self,
+    "minItems": MinItemsValidator.self,
+    "uniqueItems": UniqueItemsValidator.self,
+    "maxProperties": MaxPropertiesValidator.self,
+    "minProperties": MinPropertiesValidator.self,
+    "required": RequiredValidator.self,
+    "type": TypeValidator.self,
+    "propertyNames": PropertyNamesValidator.self,
+    "enum": EnumValidator.self
+]
+
 struct Schema {
     var id: String?
     var schemaUri: String?
-    
+    var title: String?
     var description: String?
     
     var validators: [Validator]
+    var itemShouldBePresent: Bool? = nil
     
-    /*init(json: JSONValue) {
-        guard case let .object(props, sourcePosition) = json else {
+    init(_ json: JSONValue) throws {
+        guard case let .object(jsonProps, _) = json else {
+            if case let .boolean(b, _) = json {
+                itemShouldBePresent = b
+            }
+            
             validators = []
             return
         }
         
+        let props = try objectPropsOrThrow("Object key is not a string", props: jsonProps)
+        
+        id          = props["$id"]?.stringValue
+        schemaUri   = props["$schema"]?.stringValue
+        title       = props["title"]?.stringValue
+        description = props["description"]?.stringValue
+        
+        validators = []
+        var errors = [ValidationError]()
+        
+        // Add validators
+        for v in validatorTypes {
+            if let validatorJson = props[v.key] {
+                do {
+                    let validator = try v.value.init(validatorJson)
+                    validators.append(validator)
+                } catch let e as ValidationError {
+                    errors.append(e)
+                }
+            }
+        }
+        
+        /*
         for key in props.keys {
             switch key.stringValue! {
             case "multipleOf":
@@ -59,6 +108,18 @@ struct Schema {
             default:
                 break
             }
+        }*/
+    }
+    
+    func validate(_ json: JSONValue) throws {
+        if let present = itemShouldBePresent {
+            if !present {
+                throw ValidationError("item should not be present", sourceLocation: json.sourcePosition)
+            }
         }
-    }*/
+        
+        for validator in validators {
+            try validator.validate(json, schema: self)
+        }
+    }
 }

@@ -209,4 +209,17 @@ class JSONParserTests: XCTestCase {
         XCTAssertThrowsError(try JSONReader.read(src))
     }
     
+    func testUnicodeScalarsAreDecoded() {
+        let src = "\"\\uD83D\\uDCA9\\uD83D\\uDCA9\""
+        
+        let val = try! JSONReader.read(src)
+        
+        guard case let .string(str, _) = val else {
+            XCTFail("Should be a string")
+            return
+        }
+        
+        XCTAssertEqual(str, "💩💩")
+    }
+    
 }

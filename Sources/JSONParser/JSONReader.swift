@@ -88,6 +88,8 @@ class JSONReader {
                 return .boolean(true, sourcePosition)
             case "false":
                 return .boolean(false, sourcePosition)
+            case "null":
+                return .null(sourcePosition)
             default:
                 throw JSONParserError(sourcePosition: sourcePosition,
                                       errorType: .parser,

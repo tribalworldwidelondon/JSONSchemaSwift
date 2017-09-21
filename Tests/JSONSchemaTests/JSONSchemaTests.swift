@@ -23,6 +23,7 @@
  */
 
 import XCTest
+@testable import JSONParser
 @testable import JSONSchema
 
 class JSONSchemaTests: XCTestCase {
@@ -40,65 +41,80 @@ class JSONSchemaTests: XCTestCase {
         
         do {
             let suiteFile = try Data(contentsOf: URL(fileURLWithPath: suitePath))
-            let suiteJson = try JSONSerialization.jsonObject(with: suiteFile, options: [])
+            let suiteString = String(data: suiteFile, encoding: .utf8)!
+            let suiteJson = try JSONReader.read(suiteString)
             
-            guard let tests = suiteJson as? [[String: Any]] else {
-                XCTFail("Invalid test suite format: \(suitePath)", file: file, line: line)
-                return
-            }
+            let tests = try getArrayOrThrow("Invalid test json", json: suiteJson)
             
             print("\tRunning test suite \(suiteName)")
             
             for test in tests {
-                let description = test["description"]
-                guard let schema = test["schema"] else {
-                    XCTFail("No schema in test: \(test)", file: file, line: line)
+                guard case let .object(oProps, _) = test else {
+                    XCTFail("Test data invalid", file: file, line: line)
                     return
                 }
                 
-                guard let schemaTests = test["tests"] as? [[String: Any]] else {
-                    XCTFail("No tests: \(test)", file: file, line: line)
+                let props = try! objectPropsOrThrow("Invalid test data", props: oProps)
+                
+                let description = props["description"]?.stringValue
+                
+                guard let schema = props["schema"] else {
+                    XCTFail("No schema in test: \(test.asJsonString())", file: file, line: line)
                     return
                 }
+                
+                let schemaTests = try! getArrayOrThrow("Invalid test data", json: props["tests"]!)
                 
                 print("\t\tRunning schema test: \"\(description ?? "")\"")
                 
-                for schemaTest in schemaTests {
+                for schemaTestObj in schemaTests {
+                    guard case let .object(oTestProps, _) = schemaTestObj else {
+                        XCTFail("Test data invalid", file: file, line: line)
+                        return
+                    }
+                    
+                    let schemaTest = try! objectPropsOrThrow("Invalid schema test", props: oTestProps)
+                    
                     let testDescription = schemaTest["description"]
                     guard let testData = schemaTest["data"] else {
                         XCTFail("No data for test \(schemaTest)", file: file, line: line)
                         return
                     }
                     
-                    guard let expectedResult = schemaTest["valid"] as? Bool else {
+                    guard let expectedResult = schemaTest["valid"]?.boolValue else {
                         XCTFail("No result for test \(schemaTest)", file: file, line: line)
                         return
                     }
                     
-                    print("\t\t\tRunning test: \(testDescription ?? "")")
+                    print("\t\t\tRunning test: \(testDescription?.stringValue ?? "")")
                     
                     do {
-                        let s = try JsonSchema(schema)
-                        let result = s.validates(testData)
                         
-                        switch result {
-                        case .invalid(_):
+                        let s = try Schema(schema)
+                        
+                        do {
+                            try s.validate(testData)
+                        } catch let e as ValidationError {
                             if expectedResult == true {
                                 print("\t\t\t\tFailed.")
-                                print("\t\t\t\t\(result)")
-                                XCTFail("Invalid test result for test \(testDescription ?? ""). Expected validates.", file: file, line: line)
+                                for errorDesc in e.errors {
+                                    print("\t\t\t\t\(errorDesc.0)")
+                                }
+                                
+                                XCTFail("Invalid test result for test \(testDescription?.stringValue ?? ""). Expected validates.", file: file, line: line)
                             } else {
                                 print("\t\t\t\tPassed.")
                             }
-                        case .valid:
-                            if expectedResult == false {
-                                print("\t\t\t\tFailed.")
-                                print("\t\t\t\t\(result)")
-                                XCTFail("Invalid test result for test \(testDescription ?? ""). Expected to not validate.", file: file, line: line)
-                            } else {
-                                print("\t\t\t\tPassed.")
-                            }
+                            continue
                         }
+                        
+                        if expectedResult == false {
+                            print("\t\t\t\tFailed.")
+                            XCTFail("Invalid test result for test \(testDescription?.stringValue ?? ""). Expected to not validate.", file: file, line: line)
+                        } else {
+                            print("\t\t\t\tPassed.")
+                        }
+                        
                     } catch {
                         XCTFail("Schema error: \(error)", file: file, line: line)
                     }
@@ -127,9 +143,9 @@ class JSONSchemaTests: XCTestCase {
     //        runTestSuite(suiteName: "anyOf")
     //    }
     //
-    //    func testBooleanSchema() {
-    //        runTestSuite(suiteName: "boolean_schema")
-    //    }
+    func testBooleanSchema() {
+        runTestSuite(suiteName: "boolean_schema")
+    }
     //
     //    func testConst() {
     //        runTestSuite(suiteName: "const")
@@ -151,57 +167,57 @@ class JSONSchemaTests: XCTestCase {
     //        runTestSuite(suiteName: "dependencies")
     //    }
     //
-    //    func testEnum() {
-    //        runTestSuite(suiteName: "enum")
-    //    }
-    //
-    //    func testExclusiveMaximum() {
-    //        runTestSuite(suiteName: "exclusiveMaximum")
-    //    }
-    //
-    //    func testExclusiveMinimum() {
-    //        runTestSuite(suiteName: "exclusiveMinimum")
-    //    }
-    //
-    //    func testItems() {
-    //        runTestSuite(suiteName: "testItems")
-    //    }
-    //
-    //    func testMaximum() {
-    //        runTestSuite(suiteName: "maximum")
-    //    }
-    //
-    //    func testMaxItems() {
-    //        runTestSuite(suiteName: "maxItems")
-    //    }
-    //
-    //    func testMaxLength() {
-    //        runTestSuite(suiteName: "maxLength")
-    //    }
-    //
-    //    func testMaxProperties() {
-    //        runTestSuite(suiteName: "maxProperties")
-    //    }
-    //
-    //    func testMinimum() {
-    //        runTestSuite(suiteName: "minimum")
-    //    }
-    //
-    //    func testMinItems() {
-    //        runTestSuite(suiteName: "minItems")
-    //    }
-    //
-    //    func testMinLength() {
-    //        runTestSuite(suiteName: "minLength")
-    //    }
-    //
-    //    func testMinProperties() {
-    //        runTestSuite(suiteName: "minProperties")
-    //    }
-    //
-    //    func testMultipleOf() {
-    //        runTestSuite(suiteName: "multipleOf")
-    //    }
+    func testEnum() {
+        runTestSuite(suiteName: "enum")
+    }
+    
+    func testExclusiveMaximum() {
+        runTestSuite(suiteName: "exclusiveMaximum")
+    }
+    
+    func testExclusiveMinimum() {
+        runTestSuite(suiteName: "exclusiveMinimum")
+    }
+    
+    func testItems() {
+        runTestSuite(suiteName: "items")
+    }
+    
+    func testMaximum() {
+        runTestSuite(suiteName: "maximum")
+    }
+    
+    func testMaxItems() {
+        runTestSuite(suiteName: "maxItems")
+    }
+    
+    func testMaxLength() {
+        runTestSuite(suiteName: "maxLength")
+    }
+    
+    func testMaxProperties() {
+        runTestSuite(suiteName: "maxProperties")
+    }
+    
+    func testMinimum() {
+        runTestSuite(suiteName: "minimum")
+    }
+    
+    func testMinItems() {
+        runTestSuite(suiteName: "minItems")
+    }
+    
+    func testMinLength() {
+        runTestSuite(suiteName: "minLength")
+    }
+    
+    func testMinProperties() {
+        runTestSuite(suiteName: "minProperties")
+    }
+    
+    func testMultipleOf() {
+        runTestSuite(suiteName: "multipleOf")
+    }
     //
     //    func testNot() {
     //        runTestSuite(suiteName: "not")
@@ -211,21 +227,21 @@ class JSONSchemaTests: XCTestCase {
     //        runTestSuite(suiteName: "oneOf")
     //    }
     //
-    //    func testPattern() {
-    //        runTestSuite(suiteName: "pattern")
+    func testPattern() {
+        runTestSuite(suiteName: "pattern")
+    }
+    //
+    //    func testPatternProperties() {
+    //        runTestSuite(suiteName: "patternProperties")
     //    }
     //
-    func testPatternProperties() {
-        runTestSuite(suiteName: "patternProperties")
-    }
-    
-    func testProperties() {
-        runTestSuite(suiteName: "properties")
-    }
-    
-    //    func testPropertyNames() {
-    //        runTestSuite(suiteName: "propertyNames")
+    //    func testProperties() {
+    //        runTestSuite(suiteName: "properties")
     //    }
+    
+    func testPropertyNames() {
+        runTestSuite(suiteName: "propertyNames")
+    }
     //
     //    func testRef() {
     //        runTestSuite(suiteName: "ref")
@@ -235,9 +251,9 @@ class JSONSchemaTests: XCTestCase {
     //        runTestSuite(suiteName: "refRemote")
     //    }
     //
-    //    func testRequired() {
-    //        runTestSuite(suiteName: "required")
-    //    }
+    func testRequired() {
+        runTestSuite(suiteName: "required")
+    }
     
     func testType() {
         runTestSuite(suiteName: "type")
@@ -246,5 +262,5 @@ class JSONSchemaTests: XCTestCase {
     //    func testUniqueItems() {
     //        runTestSuite(suiteName: "uniqueItems")
     //    }
-
+    
 }

@@ -26,12 +26,14 @@ import Foundation
 import JSONParser
 
 struct ValidationError: Error {
-    let sourceLocation: JSONSourcePosition
-    let description: String
+    let errors: [(String, JSONSourcePosition)]
     
     init(_ description: String, sourceLocation: JSONSourcePosition) {
-        self.sourceLocation = sourceLocation
-        self.description = description
+        errors = [(description, sourceLocation)]
+    }
+    
+    init(_ errors: [(String, JSONSourcePosition)]) {
+        self.errors = errors
     }
 }
 
@@ -40,103 +42,9 @@ protocol Validator {
     func validate(_ json: JSONValue, schema: Schema) throws
 }
 
-internal func validateNumber(_ json: JSONValue, f: ((Double) -> Bool)) -> Bool {
-    switch json {
-    case .integer(let i, _):
-        return f(Double(i))
-    case .float(let fl, _):
-        return f(fl)
-    default:
-        return true
-    }
-}
 
-internal func validateString(_ json: JSONValue, f: ((String) -> Bool)) -> Bool {
-    switch json {
-    case .string(let s, _):
-        return f(s)
-    default:
-        return true
-    }
-}
 
-internal func validateArray(_ json: JSONValue, f: (([JSONValue]) -> Bool)) -> Bool {
-    switch json {
-    case .array(let arr, _):
-        return f(arr)
-    default:
-        return true
-    }
-}
-
-internal func validateObject(_ json: JSONValue, f: (([JSONValue: JSONValue]) -> Bool)) -> Bool {
-    switch json {
-    case .object(let props, _):
-        return f(props)
-    default:
-        return true
-    }
-}
-
-internal func validateOrThrow(_ message: String, json: JSONValue, block: () -> Bool) throws {
-    if !block() {
-        throw ValidationError(message, sourceLocation: json.sourcePosition)
-    }
-}
-
-internal func getNumberOrThrow(_ message: String, json: JSONValue) throws -> Double {
-    switch json {
-    case .integer(let i, _):
-        return Double(i)
-    case .float(let f, _):
-        return f
-    default:
-        throw ValidationError(message, sourceLocation: json.sourcePosition)
-    }
-}
-
-internal func getIntegerOrThrow(_ message: String, json: JSONValue) throws -> Int {
-    switch json {
-    case .integer(let i, _):
-        return i
-    default:
-        throw ValidationError(message, sourceLocation: json.sourcePosition)
-    }
-}
-
-internal func getBoolOrThrow(_ message: String, json: JSONValue) throws -> Bool {
-    switch json {
-    case .boolean(let b, _):
-        return b
-    default:
-        throw ValidationError(message, sourceLocation: json.sourcePosition)
-    }
-}
-
-internal func getArrayOrThrow(_ message: String, json: JSONValue) throws -> [JSONValue] {
-    guard case let .array(arr, _) = json else {
-        throw ValidationError(message, sourceLocation: json.sourcePosition)
-    }
-    
-    return arr
-}
-
-internal func getStringArrayOrThrow(_ message: String, json: JSONValue) throws -> [String] {
-    let array = try getArrayOrThrow(message, json: json)
-    
-    var stringArray = [String]()
-    stringArray.reserveCapacity(array.count)
-    
-    for item in array {
-        guard case let .string(str, _) = item else {
-            throw ValidationError(message, sourceLocation: json.sourcePosition)
-        }
-        
-        stringArray.append(str)
-    }
-    
-    return stringArray
-}
+// MARK: - Validators
 
 struct MultipleOfValidator: Validator {
     let multipleOf: Double
@@ -148,7 +56,8 @@ struct MultipleOfValidator: Validator {
     func validate(_ json: JSONValue, schema: Schema) throws {
         try validateOrThrow("Must be a multiple of \(multipleOf)", json: json) {
             validateNumber(json) {
-                $0.remainder(dividingBy: multipleOf) == 0
+                // Check that is less than an epsilon due to floating point inprecision
+                abs($0.remainder(dividingBy: multipleOf)) <= 1e-8
             }
         }
     }
@@ -262,6 +171,71 @@ struct PatternValidator: Validator {
     }
 }
 
+struct ItemsValidator: Validator {
+    let itemsSchemas: [Schema]
+    let isMultiple: Bool
+    let canHaveItems: Bool
+    
+    init(_ json: JSONValue) throws {
+        switch json {
+        case .object:
+            itemsSchemas = [try Schema(json)]
+            isMultiple = false
+            canHaveItems = true
+        case .array(let array, _):
+            itemsSchemas = try array.map { try Schema($0) }
+            isMultiple = true
+            canHaveItems = true
+        case .boolean(let b, _):
+            itemsSchemas = []
+            isMultiple = true
+            canHaveItems = b
+        default:
+            throw ValidationError("items must contain a valid schema or an array of schemas",
+                                  sourceLocation: json.sourcePosition)
+        }
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        guard case let .array(array, _) = json else {
+            return
+        }
+        
+        if !canHaveItems {
+            if array.count > 0 {
+                throw ValidationError("array must not contain any items", sourceLocation: json.sourcePosition)
+            }
+        }
+        
+        if isMultiple {
+            var errors: [ValidationError] = []
+            
+            // Iterate over the array, matching each item with the associated schema item (if any)
+            for i in 0..<itemsSchemas.count {
+                if i > array.count - 1 {
+                    return
+                }
+                
+                do {
+                    try itemsSchemas[i].validate(array[i])
+                } catch let e as ValidationError {
+                    errors.append(e)
+                }
+            }
+            
+            if errors.count > 0 {
+                throw ValidationError(errors.flatMap{ $0.errors })
+            }
+            
+        } else {
+            for item in array {
+                try itemsSchemas[0].validate(item)
+            }
+        }
+    }
+    
+}
+
 struct MaxItemsValidator: Validator {
     let maxItems: Int
     
@@ -371,5 +345,223 @@ struct RequiredValidator: Validator {
             let keysString = "\"\(missingKeys.joined(separator: ", "))\""
             throw ValidationError("Object is missing the following keys: \(keysString)", sourceLocation: json.sourcePosition)
         }
+    }
+}
+
+struct TypeValidator: Validator {
+    let types: [String]
+    
+    init(_ json: JSONValue) throws {
+        if case let .string(type, _) = json {
+            types = [type]
+            return
+        }
+        
+        types = try getStringArrayOrThrow("type must be a string, or an array of strings", json: json)
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        for type in types {
+            if value(json, matchesType: type) {
+                return
+            }
+        }
+        
+        if types.count == 1 {
+            throw ValidationError("Item must be of type '\(types[0])'", sourceLocation: json.sourcePosition)
+        }
+        
+        let possibleTypes = types.map { "'\($0)'" }.joined(separator: ", ")
+        throw ValidationError("Item must be one of the following types: \(possibleTypes)",
+            sourceLocation: json.sourcePosition)
+    }
+}
+
+struct PropertyNamesValidator: Validator {
+    let propertyNamesSchema: Schema
+    
+    init(_ json: JSONValue) throws {
+        switch json {
+        case .object, .boolean:
+            propertyNamesSchema = try Schema(json)
+        default:
+            throw ValidationError("propertyNames should be a valid schema", sourceLocation: json.sourcePosition)
+        }
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        switch json {
+        case .object(let obj, _):
+            for key in obj.keys {
+                try propertyNamesSchema.validate(key)
+            }
+        default: break
+        }
+    }
+}
+
+struct EnumValidator: Validator {
+    let enumValues: [JSONValue]
+    
+    init(_ json: JSONValue) throws {
+        enumValues = try getArrayOrThrow("enum must be an array", json: json)
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        guard case let .array(array, _) = json else {
+            for v in enumValues {
+                if json == v {
+                    return
+                }
+            }
+            throw ValidationError("item must be equal to an item in the enum", sourceLocation: json.sourcePosition)
+        }
+        
+        var validationErrors = [ValidationError]()
+        
+        itemValidate: for item in array {
+            for v in enumValues {
+                if item == v {
+                    break itemValidate
+                }
+            }
+            validationErrors.append(ValidationError("item must be equal to an item in the enum", sourceLocation: item.sourcePosition))
+        }
+        
+        if validationErrors.count > 0 {
+            let collectedErrors = validationErrors.flatMap { $0.errors }
+            throw ValidationError(collectedErrors)
+        }
+    }
+}
+
+
+// MARK: - Helpers
+
+internal func validateNumber(_ json: JSONValue, f: ((Double) -> Bool)) -> Bool {
+    switch json {
+    case .integer(let i, _):
+        return f(Double(i))
+    case .float(let fl, _):
+        return f(fl)
+    default:
+        return true
+    }
+}
+
+internal func validateString(_ json: JSONValue, f: ((String) -> Bool)) -> Bool {
+    switch json {
+    case .string(let s, _):
+        return f(s)
+    default:
+        return true
+    }
+}
+
+internal func validateArray(_ json: JSONValue, f: (([JSONValue]) -> Bool)) -> Bool {
+    switch json {
+    case .array(let arr, _):
+        return f(arr)
+    default:
+        return true
+    }
+}
+
+internal func validateObject(_ json: JSONValue, f: (([JSONValue: JSONValue]) -> Bool)) -> Bool {
+    switch json {
+    case .object(let props, _):
+        return f(props)
+    default:
+        return true
+    }
+}
+
+internal func validateOrThrow(_ message: String, json: JSONValue, block: () -> Bool) throws {
+    if !block() {
+        throw ValidationError(message, sourceLocation: json.sourcePosition)
+    }
+}
+
+internal func getNumberOrThrow(_ message: String, json: JSONValue) throws -> Double {
+    switch json {
+    case .integer(let i, _):
+        return Double(i)
+    case .float(let f, _):
+        return f
+    default:
+        throw ValidationError(message, sourceLocation: json.sourcePosition)
+    }
+}
+
+internal func getIntegerOrThrow(_ message: String, json: JSONValue) throws -> Int {
+    switch json {
+    case .integer(let i, _):
+        return i
+    default:
+        throw ValidationError(message, sourceLocation: json.sourcePosition)
+    }
+}
+
+internal func getBoolOrThrow(_ message: String, json: JSONValue) throws -> Bool {
+    switch json {
+    case .boolean(let b, _):
+        return b
+    default:
+        throw ValidationError(message, sourceLocation: json.sourcePosition)
+    }
+}
+
+internal func getArrayOrThrow(_ message: String, json: JSONValue) throws -> [JSONValue] {
+    guard case let .array(arr, _) = json else {
+        throw ValidationError(message, sourceLocation: json.sourcePosition)
+    }
+    
+    return arr
+}
+
+internal func getStringArrayOrThrow(_ message: String, json: JSONValue) throws -> [String] {
+    let array = try getArrayOrThrow(message, json: json)
+    
+    var stringArray = [String]()
+    stringArray.reserveCapacity(array.count)
+    
+    for item in array {
+        guard case let .string(str, _) = item else {
+            throw ValidationError(message, sourceLocation: json.sourcePosition)
+        }
+        
+        stringArray.append(str)
+    }
+    
+    return stringArray
+}
+
+internal func objectPropsOrThrow(_ message: String, props: [JSONValue: JSONValue]) throws -> [String: JSONValue] {
+    let keys: [String] = try props.keys.map {
+        guard case let .string(str, _) = $0 else {
+            throw ValidationError(message, sourceLocation: $0.sourcePosition)
+        }
+        return str
+    }
+    
+    return [String: JSONValue](uniqueKeysWithValues: zip(keys, props.values))
+}
+
+internal func value(_ value: JSONValue, matchesType type: String) -> Bool {
+    switch value {
+    case .array:
+        return type == "array"
+    case .boolean:
+        return type == "boolean"
+    case .float:
+        return type == "number"
+    case .integer:
+        return type == "integer" || type == "number"
+    case .null:
+        return type == "null"
+    case .object:
+        return type == "object"
+    case .string:
+        return type == "string"
     }
 }
