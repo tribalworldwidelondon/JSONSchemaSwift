@@ -526,6 +526,42 @@ struct AllOfValidator: Validator {
     }
 }
 
+struct AnyOfValidator: Validator {
+    let validationSchemas: [Schema]
+    
+    init(_ json: JSONValue) throws {
+        let schemaObjs = try getArrayOrThrow("'anyOf' must be an array", json: json)
+        
+        var errors = [ValidationError]()
+        var schemas = [Schema]()
+        
+        for obj in schemaObjs {
+            do {
+                schemas.append(try Schema(obj))
+            } catch let e as ValidationError {
+                errors.append(e)
+            }
+        }
+        
+        if errors.count > 0 {
+            throw ValidationError(errors.flatMap { $0.errors })
+        }
+        
+        validationSchemas = schemas
+    }
+    
+    func validate(_ json: JSONValue, schema: Schema) throws {
+        for s in validationSchemas {
+            do {
+                try s.validate(json)
+                return
+            } catch {
+            }
+        }
+        
+        throw ValidationError("item must match at least one schema", sourceLocation: json.sourcePosition)
+    }
+}
 
 // MARK: - Helpers
 
