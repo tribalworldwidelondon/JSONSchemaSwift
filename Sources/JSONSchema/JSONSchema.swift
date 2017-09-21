@@ -74,8 +74,9 @@ class RefResolver {
     }
     
     func escapeRef(_ ref: String) -> String {
-        return ref.replacingOccurrences(of: "/", with: "~1")
-            .replacingOccurrences(of: "~", with: "~0")
+        return ref.replacingOccurrences(of: "~", with: "~0")
+            .replacingOccurrences(of: "/", with: "~1")
+            .replacingOccurrences(of: "%", with: "%25")
     }
     
     func unescapeRef(_ ref: String) -> String {
@@ -132,13 +133,7 @@ class Schema {
         
         let props = try objectPropsOrThrow("Object key is not a string", props: jsonProps)
         
-        // If there is a $ref reference, ignore all other properties
         if let ref = props["$ref"] {
-            validators = []
-            properties = [:]
-            patternProperties = [:]
-            definitions = [:]
-            
             guard case let .string(str, _) = ref else {
                 throw ValidationError("'$ref' field must be a string", sourceLocation: props["$ref"]!.sourcePosition)
             }
@@ -227,7 +222,7 @@ class Schema {
         // Extract schemas from definitions
         
         definitions = [:]
-        breakDefinitions: if let objProps = props["definition"] {
+        breakDefinitions: if let objProps = props["definitions"] {
             guard case let .object(obj, _) = objProps else {
                 errors.append(ValidationError("'definitions' should be an object", sourceLocation: objProps.sourcePosition))
                 break breakDefinitions
@@ -239,7 +234,6 @@ class Schema {
                 for p in strProps {
                     do {
                         definitions[p.key] = try Schema(p.value, refResolver: self.refResolver, refPath: refPath + ["definitions", p.key])
-                        
                     } catch let e as ValidationError {
                         errors.append(e)
                     }
@@ -260,6 +254,26 @@ class Schema {
             }
         }
         
+        let recognizedProps: [String] = [
+            "$id",
+            "title",
+            "description",
+            "additionalItems",
+            "contains",
+            "dependencies",
+            "definitions",
+            "properties"
+        ] + Array(validatorTypes.keys)
+        
+        for prop in props {
+            if !recognizedProps.contains(prop.key) {
+                do {
+                    _ = try Schema(prop.value, refResolver: self.refResolver, refPath: refPath + [prop.key])
+                } catch let e as ValidationError {
+                    errors.append(e)
+                }
+            }
+        }
         
         // Collect all errors and throw as one
         if errors.count > 0 {
