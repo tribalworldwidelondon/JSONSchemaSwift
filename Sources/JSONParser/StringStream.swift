@@ -27,14 +27,27 @@
 
 import Foundation
 
+// TODO: Investigate splitting string into characters first
+
 class StringStream {
-    var str: String
     var position = 0
-    var currentCharacter: Character?
-    var nextCharacter: Character?
-    var currentCharacterIdx: String.Index
-    var nextCharacterIdx: String.Index?
-    var characterCount: Int
+    var characters: [Character]
+    var source: String
+    
+    var currentCharacter: Character? {
+        if position >= characters.count {
+            return nil
+        }
+        
+        return characters[position]
+    }
+    
+    var nextCharacter: Character? {
+        if position < characters.count - 1 {
+            return characters[position + 1]
+        }
+        return nil
+    }
     
     var currentLine: Int
     var currentColumn: Int
@@ -42,23 +55,22 @@ class StringStream {
     var sourcePosition: JSONSourcePosition {
         return JSONSourcePosition(line: currentLine,
                            column: currentColumn,
-                           source: str)
+                           source: source)
     }
     
     init(source: String) {
-        str = source
-        characterCount = str.count
-        position = 0
-        currentCharacterIdx = str.startIndex
-        nextCharacterIdx = str.index(after: currentCharacterIdx)
-        currentCharacter = str.characters[currentCharacterIdx]
+        characters = []
+        characters.reserveCapacity(source.characters.count)
         
+        for c in source.characters {
+            characters.append(c)
+        }
+        
+        self.source = source
+        
+        position = 0
         currentLine = 0
         currentColumn = 0
-        
-        if str.count > 1 {
-            nextCharacter = str[nextCharacterIdx!]
-        }
     }
     
     func advanceCharacter() {
@@ -70,28 +82,11 @@ class StringStream {
         }
         
         position += 1
-        
-        if position >= characterCount
-        {
-            currentCharacter = nil
-            nextCharacter = nil
-            return
-        }
-        
-        currentCharacterIdx = nextCharacterIdx!
-        currentCharacter = str[currentCharacterIdx]
-        
-        if position >= characterCount - 1 {
-            nextCharacter = nil
-        } else {
-            nextCharacterIdx = str.index(after: currentCharacterIdx)
-            nextCharacter = str[nextCharacterIdx!]
-        }
     }
     
     func eatWhitespace() -> Int {
         var count = 0
-        while position < characterCount {
+        while position < characters.count {
             if isWhitespace(currentCharacter!) {
                 advanceCharacter()
                 count += 1
@@ -104,14 +99,6 @@ class StringStream {
     
     func rewind() {
         position = 0
-        
-        currentCharacterIdx = str.startIndex
-        nextCharacterIdx = str.index(after: currentCharacterIdx)
-        currentCharacter = str.characters[currentCharacterIdx]
-        
-        if str.count > 1 {
-            nextCharacter = str[nextCharacterIdx!]
-        }
     }
 }
 

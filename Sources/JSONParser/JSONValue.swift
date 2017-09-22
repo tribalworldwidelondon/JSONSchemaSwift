@@ -136,6 +136,7 @@ extension JSONValue: Equatable, Hashable {
     }
     
     public var hashValue: Int {
+        // Only hash strings, since they are the only types that can be keys
         switch self {
         case .string(let str, _):
             return str.hashValue

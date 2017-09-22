@@ -117,9 +117,7 @@ class LeftBraceTokenMatcher: JSONTokenMatcher {
     static func getToken(_ stream: StringStream) -> JSONTokenType? {
         if isMatch(stream) {
             stream.advanceCharacter()
-            return JSONTokenType.lBrace(JSONSourcePosition(line: stream.currentLine,
-                                                           column: stream.currentColumn,
-                                                           source: stream.str))
+            return JSONTokenType.lBrace(stream.sourcePosition)
         }
         return nil
     }
@@ -134,9 +132,7 @@ class RightBraceTokenMatcher: JSONTokenMatcher {
     static func getToken(_ stream: StringStream) -> JSONTokenType? {
         if isMatch(stream) {
             stream.advanceCharacter()
-            return JSONTokenType.rBrace(JSONSourcePosition(line: stream.currentLine,
-                                                           column: stream.currentColumn,
-                                                           source: stream.str))
+            return JSONTokenType.rBrace(stream.sourcePosition)
         }
         return nil
     }
@@ -151,9 +147,7 @@ class LeftSquareBracketTokenMatcher: JSONTokenMatcher {
     static func getToken(_ stream: StringStream) -> JSONTokenType? {
         if isMatch(stream) {
             stream.advanceCharacter()
-            return JSONTokenType.lSquareBracket(JSONSourcePosition(line: stream.currentLine,
-                                                            column: stream.currentColumn,
-                                                            source: stream.str))
+            return JSONTokenType.lSquareBracket(stream.sourcePosition)
         }
         return nil
     }
@@ -168,9 +162,7 @@ class RightSquareBracketTokenMatcher: JSONTokenMatcher {
     static func getToken(_ stream: StringStream) -> JSONTokenType? {
         if isMatch(stream) {
             stream.advanceCharacter()
-            return JSONTokenType.rSquareBracket(JSONSourcePosition(line: stream.currentLine,
-                                                                   column: stream.currentColumn,
-                                                                   source: stream.str))
+            return JSONTokenType.rSquareBracket(stream.sourcePosition)
         }
         return nil
     }
@@ -185,9 +177,7 @@ class CommaTokenMatcher: JSONTokenMatcher {
     static func getToken(_ stream: StringStream) -> JSONTokenType? {
         if isMatch(stream) {
             stream.advanceCharacter()
-            return JSONTokenType.comma(JSONSourcePosition(line: stream.currentLine,
-                                                          column: stream.currentColumn,
-                                                          source: stream.str))
+            return JSONTokenType.comma(stream.sourcePosition)
         }
         return nil
     }
@@ -201,9 +191,7 @@ class ColonTokenMatcher: JSONTokenMatcher {
     static func getToken(_ stream: StringStream) -> JSONTokenType? {
         if isMatch(stream) {
             stream.advanceCharacter()
-            return JSONTokenType.colon(JSONSourcePosition(line: stream.currentLine,
-                                                          column: stream.currentColumn,
-                                                          source: stream.str))
+            return JSONTokenType.colon(stream.sourcePosition)
         }
         return nil
     }
@@ -230,9 +218,7 @@ class SymbolMatcher: JSONTokenMatcher {
                 }
             }
             
-            return .symbol(JSONSourcePosition(line: stream.currentLine,
-                                              column: stream.currentColumn,
-                                              source: stream.str), tok)
+            return .symbol(stream.sourcePosition, tok)
         }
         return nil
     }
@@ -519,7 +505,7 @@ class JSONTokenizer {
     }
     
     func getNextToken() throws -> JSONTokenType? {
-        if stream.position >= stream.str.count {
+        if stream.position >= stream.characters.count {
             return nil
         }
         
@@ -531,20 +517,20 @@ class JSONTokenizer {
         
         let count = stream.eatWhitespace()
         
-        if stream.position >= stream.str.count {
+        if stream.position >= stream.characters.count {
             return nil
         }
         
         if stream.currentCharacter == ";" {
             while stream.currentCharacter != "\n" {
-                if stream.position >= stream.str.count {
+                if stream.position >= stream.characters.count {
                     return nil
                 }
                 stream.advanceCharacter()
             }
             stream.advanceCharacter()
             
-            if stream.position >= stream.str.count {
+            if stream.position >= stream.characters.count {
                 return nil
             }
         } else {
