@@ -23,10 +23,40 @@
  */
 
 import XCTest
+import Foundation
 @testable import JSONParser
 @testable import JSONSchema
 
 class JSONSchemaTests: XCTestCase {
+    var serverProc: Process? = nil
+    
+    /*override func setUp() {
+        if serverProc == nil {
+            let whichProc = Process()
+            whichProc.launchPath = "/usr/bin/which"
+            whichProc.arguments = ["python"]
+            
+            let whichPipe = Pipe()
+            whichProc.standardOutput = whichPipe
+            whichProc.launch()
+            
+            let data = whichPipe.fileHandleForReading.readDataToEndOfFile()
+            let pythonPath = String(data: data, encoding: .utf8)!.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            serverProc = Process()
+            serverProc!.launchPath = pythonPath
+            
+            let filePath = #file
+            let basePathComponents = (filePath as NSString).pathComponents.dropLast(3)
+            let remoteRefPath = basePathComponents + ["schema-test-harness", "remotes"]
+            
+            serverProc!.currentDirectoryPath = NSString.path(withComponents: Array(remoteRefPath))
+            
+            serverProc!.arguments = ["-m", "SimpleHTTPServer", "1234"]
+            
+            serverProc!.launch()
+        }
+    }*/
     
     func harnessLocation() -> String {
         let filePath = #file

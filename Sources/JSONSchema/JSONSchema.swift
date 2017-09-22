@@ -57,10 +57,12 @@ internal let validatorTypes: [String: Validator.Type] = [
 class RefResolver {
     var references: [String: Schema]
     var refsToValidate: [String: JSONSourcePosition]
+    var remoteRefCache: [String: Schema]
     
     init() {
         references = [:]
         refsToValidate = [:]
+        remoteRefCache = [:]
     }
     
     func addReference(_ refPath: [String], forSchema schema: Schema) {
@@ -71,7 +73,7 @@ class RefResolver {
             path = "#"
         }
         
-        assert(references[path] == nil, "Ref already added!")
+        //assert(references[path] == nil, "Ref already added!")
         references[path] = schema
     }
     
@@ -84,7 +86,7 @@ class RefResolver {
         
         for (ref, sourcePosition) in refsToValidate {
             do {
-                _ = try getSchemaRef(ref)
+                _ = try getSchemaRef(ref, sourceLocation: sourcePosition)
             } catch {
                 errors.append(("Unable to resolve reference '\(ref)'", sourcePosition))
             }
@@ -101,19 +103,64 @@ class RefResolver {
             .replacingOccurrences(of: "%", with: "%25")
     }
     
-    func unescapeRef(_ ref: String) -> String {
-        return ref.replacingOccurrences(of: "~0", with: "~")
-            .replacingOccurrences(of: "~1", with: "/")
-    }
-    
-    func getSchemaRef(_ ref: String) throws -> Schema {
+    func getSchemaRef(_ ref: String, sourceLocation: JSONSourcePosition) throws -> Schema {
         //let unescapedRef = unescapeRef(ref)
+        
+        if !ref.hasPrefix("#") {
+            let refComponents = ref.split(separator: "#")
+            
+            if let url = URL(string: String(refComponents[0])) {
+                let schema = try resolveRemoteReference(url, sourcePosition: sourceLocation)
+                
+                if refComponents.count > 1 {
+                    return try schema.refResolver.getSchemaRef("#" + refComponents[1], sourceLocation: sourceLocation)
+                } else {
+                    return schema
+                }
+            }
+            
+            throw ValidationError("Remote reference isn't a valid URL", sourceLocation: sourceLocation)
+        }
         
         guard let schema = references[ref] else {
             throw ValidationError("Unable to resolve reference: '\(ref)'", sourceLocation: JSONSourcePosition(line: -1, column: -1, source: ""))
         }
         
         return schema
+    }
+    
+    func resolveRemoteReference(_ url: URL, sourcePosition: JSONSourcePosition) throws -> Schema {
+        if let cached = remoteRefCache[url.absoluteString] {
+            return cached
+        }
+        
+        print("Resolving remote schema ref: \(url.absoluteString)")
+        
+        let session = URLSession(configuration: .default)
+        let (data, _, error) = session.synchronousDataTask(with: url)
+        
+        if error != nil || data == nil {
+            throw ValidationError("Unable to resolve remote reference- \(error!.localizedDescription): \(url.absoluteString)",
+                sourceLocation: sourcePosition)
+        }
+        
+        let validationError = ValidationError("Remote reference is not a valid schema.", sourceLocation: sourcePosition)
+        
+        let jsonString = String(data: data!, encoding: .utf8)
+        
+        if jsonString == nil {
+            throw validationError
+        }
+        
+        do {
+            let json = try JSONReader.read(jsonString!)
+            let schema = try Schema(json)
+            remoteRefCache[url.absoluteString] = schema
+            return schema
+        } catch {
+            throw validationError
+        }
+        
     }
 }
 
@@ -320,7 +367,8 @@ class Schema {
     
     func validate(_ json: JSONValue) throws {
         if refId != nil {
-            try refResolver.getSchemaRef(refId!).validate(json)
+            try refResolver.getSchemaRef(refId!,
+                                         sourceLocation: JSONSourcePosition(line: -1, column: -1, source: "")).validate(json)
             return
         }
         

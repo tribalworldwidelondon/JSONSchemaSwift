@@ -24,7 +24,7 @@
 
 import Foundation
 
-class JSONReader {
+public class JSONReader {
     let tokens: [JSONTokenType]
     var pos = 0
     var currentSourcePosition: JSONSourcePosition?
