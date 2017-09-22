@@ -25,9 +25,9 @@
 import Foundation
 
 public struct JSONSourcePosition {
-    let line: Int
-    let column: Int
-    let source: String
+    public let line: Int
+    public let column: Int
+    public let source: String
     
     public init(line: Int, column: Int, source: String) {
         self.line = line

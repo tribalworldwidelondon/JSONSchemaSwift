@@ -24,13 +24,13 @@
 
 import Foundation
 
-enum JSONParserErrorType {
+public enum JSONParserErrorType {
     case lexer
     case parser
 }
 
-struct JSONParserError: Error {
-    let sourcePosition: JSONSourcePosition
-    let errorType: JSONParserErrorType
-    let message: String
+public struct JSONParserError: Error {
+    public let sourcePosition: JSONSourcePosition
+    public let errorType: JSONParserErrorType
+    public let message: String
 }
