@@ -177,7 +177,7 @@ struct ItemsValidator: Validator {
     let canHaveItems: Bool
     
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
-        var newPath = refPath + ["items"]
+        let newPath = refPath + ["items"]
         
         switch json {
         case .object:

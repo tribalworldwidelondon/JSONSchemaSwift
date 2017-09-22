@@ -166,7 +166,6 @@ class RefResolver {
 
 class Schema {
     var refResolver: RefResolver
-    
     var refId: String?
     
     var id: String?
@@ -181,7 +180,11 @@ class Schema {
     var validators: [Validator]
     var itemShouldBePresent: Bool? = nil
     
-    init(_ json: JSONValue, refResolver: RefResolver? = nil, refPath: [String] = []) throws {
+    public convenience init(_ json: JSONValue) throws {
+        try self.init(json, refResolver: nil, refPath: [], isMeta: false)
+    }
+    
+    init(_ json: JSONValue, refResolver: RefResolver? = nil, refPath: [String] = [], isMeta: Bool = false) throws {
         let isRoot: Bool
         
         if refResolver != nil {
@@ -349,14 +352,31 @@ class Schema {
             }
         }
         
-        // Try and resolve all references
         if isRoot {
+            // Try and resolve all references
             do {
                 try self.refResolver.validateRefsResolve()
             } catch let e as ValidationError {
                 errors.append(e)
             }
+            
+            if !isMeta {
+                // Validate against meta schema
+                do {
+                    let meta = try MetaSchema.getMetaSchema()
+                    do {
+                        try meta.validate(json)
+                    } catch let e as ValidationError {
+                        errors.append(e)
+                    }
+                    
+                } catch {
+                    fatalError("Unable to load metaschema")
+                }
+            }
         }
+        
+        
         
         // Collect all errors and throw as one
         if errors.count > 0 {
