@@ -56,9 +56,11 @@ internal let validatorTypes: [String: Validator.Type] = [
 
 class RefResolver {
     var references: [String: Schema]
+    var refsToValidate: [String: JSONSourcePosition]
     
     init() {
         references = [:]
+        refsToValidate = [:]
     }
     
     func addReference(_ refPath: [String], forSchema schema: Schema) {
@@ -71,6 +73,26 @@ class RefResolver {
         
         assert(references[path] == nil, "Ref already added!")
         references[path] = schema
+    }
+    
+    func addRefToResolve(_ ref: String, sourcePosition: JSONSourcePosition) {
+        refsToValidate[ref] = sourcePosition
+    }
+    
+    func validateRefsResolve() throws {
+        var errors: [(String, JSONSourcePosition)] = []
+        
+        for (ref, sourcePosition) in refsToValidate {
+            do {
+                _ = try getSchemaRef(ref)
+            } catch {
+                errors.append(("Unable to resolve reference '\(ref)'", sourcePosition))
+            }
+        }
+        
+        if errors.count > 0 {
+            throw ValidationError(errors)
+        }
     }
     
     func escapeRef(_ ref: String) -> String {
@@ -113,9 +135,13 @@ class Schema {
     var itemShouldBePresent: Bool? = nil
     
     init(_ json: JSONValue, refResolver: RefResolver? = nil, refPath: [String] = []) throws {
+        let isRoot: Bool
+        
         if refResolver != nil {
+            isRoot = false
             self.refResolver = refResolver!
         } else {
+            isRoot = true
             self.refResolver = RefResolver()
         }
         
@@ -139,6 +165,7 @@ class Schema {
             }
             
             refId = str
+            self.refResolver.addRefToResolve(str, sourcePosition: ref.sourcePosition)
         }
         
         id          = props["$id"]?.stringValue
@@ -272,6 +299,15 @@ class Schema {
                 } catch let e as ValidationError {
                     errors.append(e)
                 }
+            }
+        }
+        
+        // Try and resolve all references
+        if isRoot {
+            do {
+                try self.refResolver.validateRefsResolve()
+            } catch let e as ValidationError {
+                errors.append(e)
             }
         }
         

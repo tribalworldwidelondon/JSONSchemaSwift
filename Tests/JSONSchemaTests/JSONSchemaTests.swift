@@ -115,8 +115,10 @@ class JSONSchemaTests: XCTestCase {
                             print("\t\t\t\tPassed.")
                         }
                         
-                    } catch {
-                        XCTFail("Schema error: \(error)", file: file, line: line)
+                    } catch let e as ValidationError {
+                        for msg in e.errors {
+                            XCTFail("Schema error: \(msg.0)", file: file, line: line)
+                        }
                     }
                 }
             }
