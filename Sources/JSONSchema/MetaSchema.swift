@@ -38,8 +38,8 @@ class MetaSchema {
     
     static let draft6MetaSchema = """
     {
-        "$schema": "http://json-schema.org/draft-06/schema#",
-        "$id": "http://json-schema.org/draft-06/schema#",
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "http://json-schema.org/draft-07/schema#",
         "title": "Core schema meta-schema",
         "definitions": {
             "schemaArray": {
@@ -89,13 +89,24 @@ class MetaSchema {
                 "type": "string",
                 "format": "uri-reference"
             },
+            "$comment": {
+                "type": "string"
+            },
             "title": {
                 "type": "string"
             },
             "description": {
                 "type": "string"
             },
-            "default": {},
+            "default": true,
+            "readOnly": {
+                "type": "boolean",
+                "default": false
+            },
+            "examples": {
+                "type": "array",
+                "items": true
+            },
             "multipleOf": {
                 "type": "number",
                 "exclusiveMinimum": 0
@@ -124,7 +135,7 @@ class MetaSchema {
                     { "$ref": "#" },
                     { "$ref": "#/definitions/schemaArray" }
                 ],
-                "default": {}
+                "default": true
             },
             "maxItems": { "$ref": "#/definitions/nonNegativeInteger" },
             "minItems": { "$ref": "#/definitions/nonNegativeIntegerDefault0" },
@@ -150,6 +161,7 @@ class MetaSchema {
             "patternProperties": {
                 "type": "object",
                 "additionalProperties": { "$ref": "#" },
+                "propertyNames": { "format": "regex" },
                 "default": {}
             },
             "dependencies": {
@@ -162,9 +174,10 @@ class MetaSchema {
                 }
             },
             "propertyNames": { "$ref": "#" },
-            "const": {},
+            "const": true,
             "enum": {
                 "type": "array",
+                "items": true,
                 "minItems": 1,
                 "uniqueItems": true
             },
@@ -180,12 +193,17 @@ class MetaSchema {
                 ]
             },
             "format": { "type": "string" },
+            "contentMediaType": { "type": "string" },
+            "contentEncoding": { "type": "string" },
+            "if": { "$ref": "#" },
+            "then": { "$ref": "#" },
+            "else": { "$ref": "#" },
             "allOf": { "$ref": "#/definitions/schemaArray" },
             "anyOf": { "$ref": "#/definitions/schemaArray" },
             "oneOf": { "$ref": "#/definitions/schemaArray" },
             "not": { "$ref": "#" }
         },
-        "default": {}
+        "default": true
     }
     """
 }

@@ -61,7 +61,7 @@ class JSONSchemaTests: XCTestCase {
     func harnessLocation() -> String {
         let filePath = #file
         let basePathComponents = (filePath as NSString).pathComponents.dropLast(3)
-        let harnessPathComponents = basePathComponents + ["schema-test-harness", "tests", "draft6"]
+        let harnessPathComponents = basePathComponents + ["schema-test-harness", "tests", "draft7"]
         
         return NSString.path(withComponents: Array(harnessPathComponents))
     }
