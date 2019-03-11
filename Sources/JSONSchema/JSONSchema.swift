@@ -23,7 +23,10 @@
  */
 
 import Foundation
-import JSONParser
+
+#if canImport(JSONParser)
+    import JSONParser
+#endif
 
 internal let validatorTypes: [String: Validator.Type] = [
     "multipleOf": MultipleOfValidator.self,

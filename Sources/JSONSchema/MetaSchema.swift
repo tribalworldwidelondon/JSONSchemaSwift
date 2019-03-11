@@ -24,7 +24,10 @@
 
 
 import Foundation
-import JSONParser
+
+#if canImport(JSONParser)
+    import JSONParser
+#endif
 
 class MetaSchema {
     private let metaSchema: Schema? = nil

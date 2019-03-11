@@ -23,7 +23,10 @@
  */
 
 import Foundation
-import JSONParser
+
+#if canImport(JSONParser)
+    import JSONParser
+#endif
 
 struct ValidationError: Error {
     let errors: [(String, JSONSourcePosition)]
