@@ -211,12 +211,12 @@ class JSONSchemaTests: XCTestCase {
         runTestSuite(suiteName: "exclusiveMinimum")
     }
     
-    func testItems() {
-        runTestSuite(suiteName: "items")
+    func testIfThenElse() {
+        runTestSuite(suiteName: "if-then-else")
     }
     
-    func testMaximum() {
-        runTestSuite(suiteName: "maximum")
+    func testItems() {
+        runTestSuite(suiteName: "items")
     }
     
     func testMaxItems() {
@@ -231,8 +231,8 @@ class JSONSchemaTests: XCTestCase {
         runTestSuite(suiteName: "maxProperties")
     }
     
-    func testMinimum() {
-        runTestSuite(suiteName: "minimum")
+    func testMaximum() {
+        runTestSuite(suiteName: "maximum")
     }
     
     func testMinItems() {
@@ -245,6 +245,10 @@ class JSONSchemaTests: XCTestCase {
     
     func testMinProperties() {
         runTestSuite(suiteName: "minProperties")
+    }
+    
+    func testMinimum() {
+        runTestSuite(suiteName: "minimum")
     }
     
     func testMultipleOf() {
