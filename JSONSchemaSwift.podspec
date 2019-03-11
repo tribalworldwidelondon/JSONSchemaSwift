@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
 
   s.name         = "JSONSchemaSwift"
-  s.version      = "0.0.1"
+  s.version      = "0.0.2"
   s.summary      = "A JSONSchema validation library for swift, supporting JSONSchema draft 7."
   s.description  = <<-DESC
   A JSON Schema validation library that supports the majority of JSONSchema draft 7.
