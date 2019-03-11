@@ -28,46 +28,6 @@ import XCTest
 
 class JSONParserTests: XCTestCase {
     
-    func testReadSimpleJSONObject() {
-        let src = """
-        {
-            "string": "Hello, world!",
-            "float": 123.456,
-            "int": 123456,
-            "boolean": true,
-            "array": [1, 2, 3, 4, 5],
-            "object": {
-                "a": 1,
-                "b": 2.2
-            }
-        }
-        """
-        
-        let json = try! JSONReader.read(src)
-        
-        let expectedStr = """
-        {
-          "boolean": true,
-          "float": 123.456,
-          "int": 123456,
-          "array":   [
-            1,
-            2,
-            3,
-            4,
-            5
-          ],
-          "object": {
-            "b": 2.2,
-            "a": 1
-          },
-          "string": "Hello, world!"
-        }
-        """
-        
-        XCTAssertEqual(json.asJsonString(), expectedStr)
-    }
-    
     func testObjectRepresentation() {
         let src = """
         {
