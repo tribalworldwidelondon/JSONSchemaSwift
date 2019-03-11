@@ -128,7 +128,7 @@ struct MaxLengthValidator: Validator {
     
     func validate(_ json: JSONValue, schema: Schema) throws {
         try validateOrThrow("String must have a length less than or equal to \(maxLength)", json: json) {
-            validateString(json) { $0.characters.count <= maxLength }
+            validateString(json) { $0.count <= maxLength }
         }
     }
 }
@@ -142,7 +142,7 @@ struct MinLengthValidator: Validator {
     
     func validate(_ json: JSONValue, schema: Schema) throws {
         try validateOrThrow("String must have a length greater than or equal to \(minLength)", json: json) {
-            validateString(json) { $0.characters.count >= minLength }
+            validateString(json) { $0.count >= minLength }
         }
     }
 }
@@ -165,7 +165,7 @@ struct PatternValidator: Validator {
     func validate(_ json: JSONValue, schema: Schema) throws {
         try validateOrThrow("String must match pattern '\(regex.pattern)'", json: json) {
             validateString(json) {
-                regex.matches(in: $0, options: [], range: NSMakeRange(0, $0.characters.count)).count > 0
+                regex.matches(in: $0, options: [], range: NSMakeRange(0, $0.count)).count > 0
             }
         }
     }
@@ -636,7 +636,7 @@ struct PatternPropertiesValidator: Validator {
         
         for p in props {
             for pattProp in schema.patternProperties {
-                if pattProp.key.matches(in: p.key, options: [], range: NSMakeRange(0, p.key.characters.count)).count > 0 {
+                if pattProp.key.matches(in: p.key, options: [], range: NSMakeRange(0, p.key.count)).count > 0 {
                     do {
                         try pattProp.value.validate(p.value)
                     } catch let e as ValidationError {
@@ -831,7 +831,7 @@ internal func value(_ value: JSONValue, matchesType type: String) -> Bool {
 
 internal func string(_ str: String, matchesPatternArray patterns: [NSRegularExpression]) -> Bool {
     for patt in patterns {
-        if patt.matches(in: str, options: [], range: NSMakeRange(0, str.characters.count)).count > 0 {
+        if patt.matches(in: str, options: [], range: NSMakeRange(0, str.count)).count > 0 {
             return true
         }
     }

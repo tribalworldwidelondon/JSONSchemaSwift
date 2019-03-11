@@ -67,7 +67,7 @@ class RefResolver {
     
     func addReference(_ refPath: [String], forSchema schema: Schema) {
         var path = refPath.map { escapeRef($0) }.joined(separator: "/")
-        if path.characters.count > 0 {
+        if path.count > 0 {
             path = "#/" + path
         } else {
             path = "#"

@@ -60,9 +60,9 @@ class StringStream {
     
     init(source: String) {
         characters = []
-        characters.reserveCapacity(source.characters.count)
+        characters.reserveCapacity(source.count)
         
-        for c in source.characters {
+        for c in source {
             characters.append(c)
         }
         
