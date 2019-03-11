@@ -42,7 +42,7 @@ struct ValidationError: Error {
 
 protocol Validator {
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws
-    func validate(_ json: JSONValue, schema: Schema) throws
+    func validate(_ json: JSONValue, schema: JSONSchema) throws
 }
 
 
@@ -56,7 +56,7 @@ struct MultipleOfValidator: Validator {
         multipleOf = try getNumberOrThrow("multipleOf should be a number", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Must be a multiple of \(multipleOf)", json: json) {
             validateNumber(json) {
                 // Check that is less than an epsilon due to floating point inprecision
@@ -73,7 +73,7 @@ struct MaximumValidator: Validator {
         maximum = try getNumberOrThrow("maximum should be a number", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Number must be less than or equal to \(maximum)", json: json) {
             validateNumber(json) { $0 <= maximum }
         }
@@ -87,7 +87,7 @@ struct ExclusiveMaximumValidator: Validator {
         exclusiveMaximum = try getNumberOrThrow("exclusiveMaximum should be a number", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Number must be less than \(exclusiveMaximum)", json: json) {
             validateNumber(json) { $0 < exclusiveMaximum }
         }
@@ -101,7 +101,7 @@ struct MinimumValidator: Validator {
         minimum = try getNumberOrThrow("minimum should be a number", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Number must greater than or equal to \(minimum)", json: json) {
             validateNumber(json) { $0 >= minimum }
         }
@@ -115,7 +115,7 @@ struct ExclusiveMinimumValidator: Validator {
         exclusiveMinimum = try getNumberOrThrow("exclusiveMinimum should be a number", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Number must greater than \(exclusiveMinimum)", json: json) {
             validateNumber(json) { $0 > exclusiveMinimum }
         }
@@ -129,7 +129,7 @@ struct MaxLengthValidator: Validator {
         maxLength = try getIntegerOrThrow("maxLength should be an integer", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("String must have a length less than or equal to \(maxLength)", json: json) {
             validateString(json) { $0.count <= maxLength }
         }
@@ -143,7 +143,7 @@ struct MinLengthValidator: Validator {
         minLength = try getIntegerOrThrow("minLength should be an integer", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("String must have a length greater than or equal to \(minLength)", json: json) {
             validateString(json) { $0.count >= minLength }
         }
@@ -165,7 +165,7 @@ struct PatternValidator: Validator {
         }
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("String must match pattern '\(regex.pattern)'", json: json) {
             validateString(json) {
                 regex.matches(in: $0, options: [], range: NSMakeRange(0, $0.count)).count > 0
@@ -175,7 +175,7 @@ struct PatternValidator: Validator {
 }
 
 struct ItemsValidator: Validator {
-    let itemsSchemas: [Schema]
+    let itemsSchemas: [JSONSchema]
     let isMultiple: Bool
     let canHaveItems: Bool
     
@@ -184,13 +184,13 @@ struct ItemsValidator: Validator {
         
         switch json {
         case .object:
-            itemsSchemas = [try Schema(json, refResolver: refResolver, refPath: newPath)]
+            itemsSchemas = [try JSONSchema(json, refResolver: refResolver, refPath: newPath)]
             isMultiple = false
             canHaveItems = true
         case .array(let array, _):
             var idx = 0
             itemsSchemas = try array.map {
-                let schema = try Schema($0, refResolver: refResolver, refPath: newPath + [String(idx)])
+                let schema = try JSONSchema($0, refResolver: refResolver, refPath: newPath + [String(idx)])
                 idx += 1
                 return schema
             }
@@ -206,7 +206,7 @@ struct ItemsValidator: Validator {
         }
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         guard case let .array(array, _) = json else {
             return
         }
@@ -253,7 +253,7 @@ struct MaxItemsValidator: Validator {
         maxItems = try getIntegerOrThrow("maxItems should be an integer", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Array must have \(maxItems) items or less", json: json) {
             validateArray(json) { $0.count <= maxItems }
         }
@@ -267,7 +267,7 @@ struct MinItemsValidator: Validator {
         minItems = try getIntegerOrThrow("minItems should be an integer", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Array must have \(minItems) or more items", json: json) {
             validateArray(json) { $0.count >= minItems }
         }
@@ -281,7 +281,7 @@ struct UniqueItemsValidator: Validator {
         uniqueItems = try getBoolOrThrow("uniqueItems should be a boolean", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         guard case let .array(array, _) = json else {
             return
         }
@@ -305,7 +305,7 @@ struct MaxPropertiesValidator: Validator {
         maxProperties = try getIntegerOrThrow("maxProperties should be an integer", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Object must have \(maxProperties) properties or less", json: json) {
             validateObject(json) { $0.keys.count <= maxProperties }
         }
@@ -319,7 +319,7 @@ struct MinPropertiesValidator: Validator {
         minProperties = try getIntegerOrThrow("minProperties should be an integer", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         try validateOrThrow("Object must have \(minProperties) or more properties", json: json) {
             validateObject(json) { $0.keys.count >= minProperties }
         }
@@ -333,7 +333,7 @@ struct RequiredValidator: Validator {
         required = try getStringArrayOrThrow("required must be an array of strings", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         guard case let .object(props, _) = json else {
             return
         }
@@ -373,7 +373,7 @@ struct TypeValidator: Validator {
         types = try getStringArrayOrThrow("type must be a string, or an array of strings", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         for type in types {
             if value(json, matchesType: type) {
                 return
@@ -391,18 +391,18 @@ struct TypeValidator: Validator {
 }
 
 struct PropertyNamesValidator: Validator {
-    let propertyNamesSchema: Schema
+    let propertyNamesSchema: JSONSchema
     
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
         switch json {
         case .object, .boolean:
-            propertyNamesSchema = try Schema(json, refResolver: refResolver, refPath: refPath + ["propertyNames"])
+            propertyNamesSchema = try JSONSchema(json, refResolver: refResolver, refPath: refPath + ["propertyNames"])
         default:
             throw ValidationError("propertyNames should be a valid schema", sourceLocation: json.sourcePosition)
         }
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         switch json {
         case .object(let obj, _):
             for key in obj.keys {
@@ -420,7 +420,7 @@ struct EnumValidator: Validator {
         enumValues = try getArrayOrThrow("enum must be an array", json: json)
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         guard case let .array(array, _) = json else {
             for v in enumValues {
                 if json == v {
@@ -449,13 +449,13 @@ struct EnumValidator: Validator {
 }
 
 struct NotValidator: Validator {
-    let notSchema: Schema
+    let notSchema: JSONSchema
     
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
-        notSchema = try Schema(json, refResolver: refResolver, refPath: ["not"])
+        notSchema = try JSONSchema(json, refResolver: refResolver, refPath: ["not"])
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         do {
             try notSchema.validate(json)
         } catch {
@@ -470,7 +470,7 @@ struct PropertiesValidator: Validator {
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         guard case let .object(objProps, _) = json else {
             return
         }
@@ -496,18 +496,18 @@ struct PropertiesValidator: Validator {
 }
 
 struct AllOfValidator: Validator {
-    let validationSchemas: [Schema]
+    let validationSchemas: [JSONSchema]
     
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
         let schemaObjs = try getArrayOrThrow("'allOf' must be an array", json: json)
         
         var errors = [ValidationError]()
-        var schemas = [Schema]()
+        var schemas = [JSONSchema]()
         
         var idx = 0
         for obj in schemaObjs {
             do {
-                schemas.append(try Schema(obj, refResolver: refResolver, refPath: ["allOf", String(idx)]))
+                schemas.append(try JSONSchema(obj, refResolver: refResolver, refPath: ["allOf", String(idx)]))
             } catch let e as ValidationError {
                 errors.append(e)
             }
@@ -522,7 +522,7 @@ struct AllOfValidator: Validator {
         validationSchemas = schemas
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         var errors = [ValidationError]()
         
         for s in validationSchemas {
@@ -540,18 +540,18 @@ struct AllOfValidator: Validator {
 }
 
 struct AnyOfValidator: Validator {
-    let validationSchemas: [Schema]
+    let validationSchemas: [JSONSchema]
     
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
         let schemaObjs = try getArrayOrThrow("'anyOf' must be an array", json: json)
         
         var errors = [ValidationError]()
-        var schemas = [Schema]()
+        var schemas = [JSONSchema]()
         
         var idx = 0
         for obj in schemaObjs {
             do {
-                schemas.append(try Schema(obj, refResolver: refResolver, refPath: ["anyOf", String(idx)]))
+                schemas.append(try JSONSchema(obj, refResolver: refResolver, refPath: ["anyOf", String(idx)]))
             } catch let e as ValidationError {
                 errors.append(e)
             }
@@ -566,7 +566,7 @@ struct AnyOfValidator: Validator {
         validationSchemas = schemas
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         for s in validationSchemas {
             do {
                 try s.validate(json)
@@ -580,18 +580,18 @@ struct AnyOfValidator: Validator {
 }
 
 struct OneOfValidator: Validator {
-    let validationSchemas: [Schema]
+    let validationSchemas: [JSONSchema]
     
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
         let schemaObjs = try getArrayOrThrow("'oneOf' must be an array", json: json)
         
         var errors = [ValidationError]()
-        var schemas = [Schema]()
+        var schemas = [JSONSchema]()
         
         var idx = 0
         for obj in schemaObjs {
             do {
-                schemas.append(try Schema(obj, refResolver: refResolver, refPath: ["oneOf", String(idx)]))
+                schemas.append(try JSONSchema(obj, refResolver: refResolver, refPath: ["oneOf", String(idx)]))
             } catch let e as ValidationError {
                 errors.append(e)
             }
@@ -605,7 +605,7 @@ struct OneOfValidator: Validator {
         validationSchemas = schemas
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         var validationCount = 0
         
         for s in validationSchemas {
@@ -628,7 +628,7 @@ struct PatternPropertiesValidator: Validator {
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         guard case let .object(objProps, _) = json else {
             return
         }
@@ -656,13 +656,13 @@ struct PatternPropertiesValidator: Validator {
 }
 
 struct AdditionalPropertiesValidator: Validator {
-    let additionalPropertiesSchema: Schema
+    let additionalPropertiesSchema: JSONSchema
     
     init(_ json: JSONValue, refResolver: RefResolver, refPath: [String]) throws {
-        additionalPropertiesSchema = try Schema(json, refResolver: refResolver, refPath: refPath + ["additionalProperties"])
+        additionalPropertiesSchema = try JSONSchema(json, refResolver: refResolver, refPath: refPath + ["additionalProperties"])
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         guard case let .object(objProps, _) = json else {
             return
         }
@@ -694,7 +694,7 @@ struct ConstValidator: Validator {
         constValue = json
     }
     
-    func validate(_ json: JSONValue, schema: Schema) throws {
+    func validate(_ json: JSONValue, schema: JSONSchema) throws {
         if json != constValue {
             throw ValidationError("item should be equal to the constant value: \(constValue.asJsonString())",
                 sourceLocation: json.sourcePosition)

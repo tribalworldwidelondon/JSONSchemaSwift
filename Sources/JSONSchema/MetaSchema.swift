@@ -30,11 +30,11 @@ import Foundation
 #endif
 
 class MetaSchema {
-    private let metaSchema: Schema? = nil
+    private let metaSchema: JSONSchema? = nil
     
-    static func getMetaSchema() throws -> Schema {
+    static func getMetaSchema() throws -> JSONSchema {
         let json = try JSONReader.read(draft6MetaSchema)
-        let schema = try Schema(json, isMeta: true)
+        let schema = try JSONSchema(json, isMeta: true)
         
         return schema
     }

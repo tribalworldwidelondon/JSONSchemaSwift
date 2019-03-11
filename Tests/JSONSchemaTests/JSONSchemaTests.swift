@@ -120,7 +120,7 @@ class JSONSchemaTests: XCTestCase {
                     
                     do {
                         
-                        let s = try Schema(schema)
+                        let s = try JSONSchema(schema)
                         
                         do {
                             try s.validate(testData)

@@ -57,10 +57,14 @@ internal let validatorTypes: [String: Validator.Type] = [
     "const": ConstValidator.self
 ]
 
+public enum JSONSchemaError: Error {
+    case invalidData
+}
+
 class RefResolver {
-    var references: [String: Schema]
+    var references: [String: JSONSchema]
     var refsToValidate: [String: JSONSourcePosition]
-    var remoteRefCache: [String: Schema]
+    var remoteRefCache: [String: JSONSchema]
     
     init() {
         references = [:]
@@ -68,7 +72,7 @@ class RefResolver {
         remoteRefCache = [:]
     }
     
-    func addReference(_ refPath: [String], forSchema schema: Schema) {
+    func addReference(_ refPath: [String], forSchema schema: JSONSchema) {
         var path = refPath.map { escapeRef($0) }.joined(separator: "/")
         if path.count > 0 {
             path = "#/" + path
@@ -106,7 +110,7 @@ class RefResolver {
             .replacingOccurrences(of: "%", with: "%25")
     }
     
-    func getSchemaRef(_ ref: String, sourceLocation: JSONSourcePosition) throws -> Schema {
+    func getSchemaRef(_ ref: String, sourceLocation: JSONSourcePosition) throws -> JSONSchema {
         //let unescapedRef = unescapeRef(ref)
         
         if !ref.hasPrefix("#") {
@@ -132,7 +136,7 @@ class RefResolver {
         return schema
     }
     
-    func resolveRemoteReference(_ url: URL, sourcePosition: JSONSourcePosition) throws -> Schema {
+    func resolveRemoteReference(_ url: URL, sourcePosition: JSONSourcePosition) throws -> JSONSchema {
         if let cached = remoteRefCache[url.absoluteString] {
             return cached
         }
@@ -157,7 +161,7 @@ class RefResolver {
         
         do {
             let json = try JSONReader.read(jsonString!)
-            let schema = try Schema(json)
+            let schema = try JSONSchema(json)
             remoteRefCache[url.absoluteString] = schema
             return schema
         } catch {
@@ -167,7 +171,7 @@ class RefResolver {
     }
 }
 
-class Schema {
+public class JSONSchema {
     var refResolver: RefResolver
     var refId: String?
     
@@ -176,18 +180,32 @@ class Schema {
     var title: String?
     var description: String?
     
-    var properties: [String: Schema]
-    var patternProperties: [NSRegularExpression: Schema]
-    var definitions: [String: Schema]
+    var properties: [String: JSONSchema]
+    var patternProperties: [NSRegularExpression: JSONSchema]
+    var definitions: [String: JSONSchema]
     
     var validators: [Validator]
     var itemShouldBePresent: Bool? = nil
+    
+    public convenience init(string: String) throws {
+        let json = try JSONReader.read(string)
+        try self.init(json)
+    }
+    
+    public convenience init(data: Data) throws {
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw JSONSchemaError.invalidData
+        }
+        
+        let json = try JSONReader.read(string)
+        try self.init(json)
+    }
     
     public convenience init(_ json: JSONValue) throws {
         try self.init(json, refResolver: nil, refPath: [], isMeta: false)
     }
     
-    init(_ json: JSONValue, refResolver: RefResolver? = nil, refPath: [String] = [], isMeta: Bool = false) throws {
+    internal init(_ json: JSONValue, refResolver: RefResolver? = nil, refPath: [String] = [], isMeta: Bool = false) throws {
         let isRoot: Bool
         
         if refResolver != nil {
@@ -255,7 +273,7 @@ class Schema {
                 
                 for p in strProps {
                     do {
-                        properties[p.key] = try Schema(p.value, refResolver: self.refResolver, refPath: refPath + ["properties", p.key])
+                        properties[p.key] = try JSONSchema(p.value, refResolver: self.refResolver, refPath: refPath + ["properties", p.key])
             
                     } catch let e as ValidationError {
                         errors.append(e)
@@ -282,7 +300,7 @@ class Schema {
                 for p in strProps {
                     do {
                         let key = try NSRegularExpression(pattern: p.key, options: [])
-                        patternProperties[key] = try Schema(p.value, refResolver: self.refResolver, refPath: refPath + ["patternProperties", p.key])
+                        patternProperties[key] = try JSONSchema(p.value, refResolver: self.refResolver, refPath: refPath + ["patternProperties", p.key])
                         
                     } catch let e as ValidationError {
                         errors.append(e)
@@ -313,7 +331,7 @@ class Schema {
                 
                 for p in strProps {
                     do {
-                        definitions[p.key] = try Schema(p.value, refResolver: self.refResolver, refPath: refPath + ["definitions", p.key])
+                        definitions[p.key] = try JSONSchema(p.value, refResolver: self.refResolver, refPath: refPath + ["definitions", p.key])
                     } catch let e as ValidationError {
                         errors.append(e)
                     }
@@ -348,7 +366,7 @@ class Schema {
         for prop in props {
             if !recognizedProps.contains(prop.key) {
                 do {
-                    _ = try Schema(prop.value, refResolver: self.refResolver, refPath: refPath + [prop.key])
+                    _ = try JSONSchema(prop.value, refResolver: self.refResolver, refPath: refPath + [prop.key])
                 } catch let e as ValidationError {
                     errors.append(e)
                 }
@@ -388,7 +406,21 @@ class Schema {
         
     }
     
-    func validate(_ json: JSONValue) throws {
+    public func validate(string: String) throws {
+        let json = try JSONReader.read(string)
+        try self.validate(json)
+    }
+    
+    public func validate(data: Data) throws {
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw JSONSchemaError.invalidData
+        }
+        
+        let json = try JSONReader.read(string)
+        try self.validate(json)
+    }
+    
+    internal func validate(_ json: JSONValue) throws {
         if refId != nil {
             try refResolver.getSchemaRef(refId!,
                                          sourceLocation: JSONSourcePosition(line: -1, column: -1, source: "")).validate(json)
